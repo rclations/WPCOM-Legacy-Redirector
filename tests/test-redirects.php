@@ -36,6 +36,22 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 
 	}
 
+	/**
+	 * Make sure redirects are stored
+	 */
+	function test_get_redirect() {
+
+		self::setup();
+
+		$from = '/simple-redirect';
+		$to = 'http://example.com';
+
+		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
+
+		$this->assertEquals( $redirect, $to );
+
+	}
+
 
 }
 

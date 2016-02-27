@@ -2,6 +2,8 @@
 
 class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 
+	protected $redirects;
+
 	/**
 	 * Makes sure the foundational stuff is sorted so tests work
 	 */
@@ -17,41 +19,55 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 			define( 'WP_ADMIN', true );
 		}
 
+		// Let's set a bunch of redirects to loop over
+		self::set_redirects( [
+			'/simple-redirect' => 'http://example.com',
+		] );
+
+	}
+
+	/**
+	 * @param array $redirects
+	 * @return WpcomLegacyRedirectsTest
+	 */
+	public function set_redirects($redirects ) {
+		$this->redirects = $redirects;
+		return $this;
 	}
 
 	/**
 	 * Make sure redirects are added
 	 */
-	function test_insert_redirect() {
+	function test_insert_redirects() {
 
 		self::setup();
 
-		// Set our from/to URLs
-		$from = '/simple-redirect';
-		$to = 'http://example.com';
+		foreach ( $this->redirects as $from => $to ) {
 
-		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
+			$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
 
-		$this->assertTrue( $redirect );
+			$this->assertTrue( $redirect );
+
+		}
 
 	}
 
 	/**
 	 * Make sure redirects are stored
 	 */
-	function test_get_redirect() {
+	function test_get_redirects() {
 
 		self::setup();
 
-		$from = '/simple-redirect';
-		$to = 'http://example.com';
+		foreach ( $this->redirects as $from => $to ) {
 
-		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
+			$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
 
-		$this->assertEquals( $redirect, $to );
+			$this->assertEquals( $redirect, $to );
+
+		}
 
 	}
-
 
 }
 

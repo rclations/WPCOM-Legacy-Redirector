@@ -74,7 +74,7 @@ class WPCOM_Legacy_Redirector {
 			return false;
 		}
 
-		$from_url = parse_url( $from_url, PHP_URL_PATH );
+		$from_url = self::normalise_url( $from_url );
 		$from_url_hash = self::get_url_hash( $from_url );
 
 		if ( false !== self::get_redirect_uri( $from_url ) ) {
@@ -103,7 +103,8 @@ class WPCOM_Legacy_Redirector {
 	}
 
 	static function get_redirect_uri( $url ) {
-		$url = urldecode( $url );
+		
+		$url = self::normalise_url( $url );
 		$url_hash = self::get_url_hash( $url );
 
 		$redirect_post_id = wp_cache_get( $url_hash, self::CACHE_GROUP );
@@ -141,6 +142,41 @@ class WPCOM_Legacy_Redirector {
 
 	private static function get_url_hash( $url ) {
 		return md5( $url );
+	}
+
+	/**
+	 * Takes a request URL and "normalises" it, stripping common elements
+	 *
+	 * Removes scheme and host from the URL, as redirects should be independent of these.
+	 *
+	 * @param string $url URL to transform
+	 *
+	 * @return string $url Transformed URL
+	 */
+	private static function normalise_url( $url ) {
+
+		// Sanitise the URL first rather than trying to normalise a non-URL
+		if ( empty( esc_url( $url ) ) ) {
+			return false;
+		}
+
+		// Break up the URL into it's constituent parts
+		$components = wp_parse_url( $url );
+
+		// Avoid playing with unexpected data
+		if ( ! is_array( $components ) || ! isset( $components['path'] ) ) {
+			return false;
+		}
+
+		// Make sure $components['query'] is set, to avoid errors
+		$components['query'] = ( isset( $components['query'] ) ) ? $components['query'] : '';
+
+		// All we want is path and query strings
+		// Note this strips hashes (#) too
+		$normalised_url = $components['path'] . $components['query'];
+
+		return $normalised_url;
+
 	}
 }
 

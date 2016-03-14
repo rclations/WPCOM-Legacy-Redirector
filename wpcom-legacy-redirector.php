@@ -156,7 +156,7 @@ class WPCOM_Legacy_Redirector {
 	private static function normalise_url( $url ) {
 
 		// Sanitise the URL first rather than trying to normalise a non-URL
-		if ( empty( esc_url( $url ) ) ) {
+		if ( empty( esc_url_raw( $url ) ) ) {
 			return false;
 		}
 

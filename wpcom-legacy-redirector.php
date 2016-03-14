@@ -75,6 +75,10 @@ class WPCOM_Legacy_Redirector {
 		}
 
 		$from_url = self::normalise_url( $from_url );
+		if ( is_wp_error( $from_url ) ) {
+			return false;
+		}
+
 		$from_url_hash = self::get_url_hash( $from_url );
 
 		if ( false !== self::get_redirect_uri( $from_url ) ) {
@@ -105,6 +109,10 @@ class WPCOM_Legacy_Redirector {
 	static function get_redirect_uri( $url ) {
 		
 		$url = self::normalise_url( $url );
+		if ( is_wp_error( $url ) ) {
+			return false;
+		}
+
 		$url_hash = self::get_url_hash( $url );
 
 		$redirect_post_id = wp_cache_get( $url_hash, self::CACHE_GROUP );
@@ -157,7 +165,7 @@ class WPCOM_Legacy_Redirector {
 
 		// Sanitise the URL first rather than trying to normalise a non-URL
 		if ( empty( esc_url_raw( $url ) ) ) {
-			return false;
+			return new WP_Error( 'invalid-redirect-url', 'The URL does not validate' );
 		}
 
 		// Break up the URL into it's constituent parts
@@ -165,7 +173,7 @@ class WPCOM_Legacy_Redirector {
 
 		// Avoid playing with unexpected data
 		if ( ! is_array( $components ) || ! isset( $components['path'] ) ) {
-			return false;
+			return new WP_Error( 'url-parse-failed', 'The URL could not be parsed' );
 		}
 
 		// Make sure $components['query'] is set, to avoid errors

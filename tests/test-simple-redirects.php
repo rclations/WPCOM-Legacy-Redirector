@@ -1,6 +1,6 @@
 <?php
 
-class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
+class WpcomLegacySimpleRedirectsTest extends WP_UnitTestCase {
 
 	/**
 	 * Makes sure the foundational stuff is sorted so tests work
@@ -22,7 +22,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 	/**
 	 * Make sure redirects are added
 	 */
-	function test_insert_redirect() {
+	function test_insert_simple_redirect() {
 
 		self::setup();
 
@@ -39,7 +39,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 	/**
 	 * Make sure redirects are stored
 	 */
-	function test_get_redirect() {
+	function test_get_simple_redirect() {
 
 		self::setup();
 

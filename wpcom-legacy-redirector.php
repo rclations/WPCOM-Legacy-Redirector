@@ -172,8 +172,13 @@ class WPCOM_Legacy_Redirector {
 		$components = wp_parse_url( $url );
 
 		// Avoid playing with unexpected data
-		if ( ! is_array( $components ) || ! isset( $components['path'] ) ) {
+		if ( ! is_array( $components ) ) {
 			return new WP_Error( 'url-parse-failed', 'The URL could not be parsed' );
+		}
+
+		// We should have at least a path or query
+		if ( ! isset( $components['path'] ) && ! isset( $components['query'] ) ) {
+			return new WP_Error( 'url-parse-failed', 'The URL contains neither a path nor query string' );
 		}
 
 		// Make sure $components['query'] is set, to avoid errors

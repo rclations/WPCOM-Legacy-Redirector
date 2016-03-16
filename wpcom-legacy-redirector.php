@@ -76,7 +76,7 @@ class WPCOM_Legacy_Redirector {
 
 		$from_url = self::normalise_url( $from_url );
 		if ( is_wp_error( $from_url ) ) {
-			return false;
+			return $from_url;
 		}
 
 		$from_url_hash = self::get_url_hash( $from_url );

@@ -49,14 +49,10 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 	 * @dataProvider get_redirect_data
 	 */
 	function test_redirect( $from, $to ) {
-		// Test insert
 		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
+		$this->assertTrue( $redirect, 'insert_legacy_redirect failed' );
 
-		$this->assertTrue( $redirect );
-
-		// Test redirect
 		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
-
-		$this->assertEquals( $redirect, $to );
+		$this->assertEquals( $redirect, $to, 'get_redirect_uri failed' );
 	}
 }

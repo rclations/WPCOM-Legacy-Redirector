@@ -20,32 +20,20 @@ class WpcomLegacySimpleRedirectsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Make sure redirects are added
+	 * Make sure redirects are added and redirect
 	 */
-	function test_insert_simple_redirect() {
-
-		self::setup();
+	function test_simple_redirect() {
 
 		// Set our from/to URLs
 		$from = '/simple-redirect';
 		$to = 'http://example.com';
 
+		// Test insert
 		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
 
 		$this->assertTrue( $redirect );
 
-	}
-
-	/**
-	 * Make sure redirects are stored
-	 */
-	function test_get_simple_redirect() {
-
-		self::setup();
-
-		$from = '/simple-redirect';
-		$to = 'http://example.com';
-
+		// Test redirect
 		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
 
 		$this->assertEquals( $redirect, $to );

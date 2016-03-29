@@ -20,37 +20,22 @@ class WpcomLegacyQueryStringRedirectsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Make sure redirects are added
+	 * Make sure redirects are added, and redirect
 	 *
 	 * The plugin should strip the query parameters and only store the URL path
 	 */
-	function test_insert_query_string_redirect() {
-
-		self::setup();
+	function test_query_string_redirect() {
 
 		// Set our from/to URLs
 		$from = '/a-redirect?with=query-string';
 		$to = 'http://example.com';
 
+		// Test insert
 		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
 
 		$this->assertTrue( $redirect );
 
-	}
-
-	/**
-	 * Make sure redirects are stored
-	 *
-	 * The plugin should strip any query params before checking for the redirect using
-	 * only the path from the input URL
-	 */
-	function test_get_query_string_redirect() {
-
-		self::setup();
-
-		$from = '/a-redirect?with=query-string';
-		$to = 'http://example.com';
-
+		// Test redirect
 		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
 
 		$this->assertEquals( $redirect, $to );

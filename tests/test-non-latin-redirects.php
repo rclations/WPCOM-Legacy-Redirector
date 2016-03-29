@@ -1,6 +1,6 @@
 <?php
 
-class WpcomLegacyHashRedirectsTest extends WP_UnitTestCase {
+class WpcomLegacyNonLatinRedirectsTest extends WP_UnitTestCase {
 
 	/**
 	 * Makes sure the foundational stuff is sorted so tests work
@@ -20,17 +20,15 @@ class WpcomLegacyHashRedirectsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Make sure redirects with hashes are added, and redirect
-	 *
-	 * The plugin should strip the hash and only store the URL path
+	 * Make sure redirects are added and redirect
 	 */
-	function test_hash_redirect() {
+	function test_nonlatin_redirect() {
 
 		// Set our from/to URLs
-		$from = '/hash-redirect#with-hash';
+		$from = '/JP納豆'; // example from https://www.w3.org/International/articles/idn-and-iri/
 		$to = 'http://example.com';
 
-		// Test insert
+		// Test inserts
 		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
 
 		$this->assertTrue( $redirect );
@@ -41,7 +39,6 @@ class WpcomLegacyHashRedirectsTest extends WP_UnitTestCase {
 		$this->assertEquals( $redirect, $to );
 
 	}
-
 
 }
 

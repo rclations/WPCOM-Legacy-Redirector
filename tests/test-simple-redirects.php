@@ -24,8 +24,6 @@ class WpcomLegacySimpleRedirectsTest extends WP_UnitTestCase {
 	 */
 	function test_insert_simple_redirect() {
 
-		self::setup();
-
 		// Set our from/to URLs
 		$from = '/simple-redirect';
 		$to = 'http://example.com';
@@ -40,8 +38,6 @@ class WpcomLegacySimpleRedirectsTest extends WP_UnitTestCase {
 	 * Make sure redirects are stored
 	 */
 	function test_get_simple_redirect() {
-
-		self::setup();
 
 		$from = '/simple-redirect';
 		$to = 'http://example.com';

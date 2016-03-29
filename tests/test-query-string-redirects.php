@@ -26,8 +26,6 @@ class WpcomLegacyQueryStringRedirectsTest extends WP_UnitTestCase {
 	 */
 	function test_insert_query_string_redirect() {
 
-		self::setup();
-
 		// Set our from/to URLs
 		$from = '/a-redirect?with=query-string';
 		$to = 'http://example.com';
@@ -45,8 +43,6 @@ class WpcomLegacyQueryStringRedirectsTest extends WP_UnitTestCase {
 	 * only the path from the input URL
 	 */
 	function test_get_query_string_redirect() {
-
-		self::setup();
 
 		$from = '/a-redirect?with=query-string';
 		$to = 'http://example.com';

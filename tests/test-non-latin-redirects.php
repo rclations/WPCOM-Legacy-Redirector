@@ -24,8 +24,6 @@ class WpcomLegacyNonLatinRedirectsTest extends WP_UnitTestCase {
 	 */
 	function test_insert_nonlatin_redirect() {
 
-		self::setup();
-
 		// Set our from/to URLs
 		$from = '/JP納豆'; // example from https://www.w3.org/International/articles/idn-and-iri/
 		$to = 'http://example.com';
@@ -40,8 +38,6 @@ class WpcomLegacyNonLatinRedirectsTest extends WP_UnitTestCase {
 	 * Make sure redirects are stored
 	 */
 	function test_get_nonlatin_redirect() {
-
-		self::setup();
 
 		$from = '/JP納豆';
 		$to = 'http://example.com';

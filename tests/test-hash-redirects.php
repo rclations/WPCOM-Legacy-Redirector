@@ -26,8 +26,6 @@ class WpcomLegacyHashRedirectsTest extends WP_UnitTestCase {
 	 */
 	function test_insert_hash_redirect() {
 
-		self::setup();
-
 		// Set our from/to URLs
 		$from = '/hash-redirect#with-hash';
 		$to = 'http://example.com';
@@ -45,8 +43,6 @@ class WpcomLegacyHashRedirectsTest extends WP_UnitTestCase {
 	 * only the path from the input URL
 	 */
 	function test_get_hash_redirect() {
-
-		self::setup();
 
 		$from = '/hash-redirect#with-hash';
 		$to = 'http://example.com';

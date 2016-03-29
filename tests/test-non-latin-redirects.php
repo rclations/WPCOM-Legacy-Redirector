@@ -20,34 +20,25 @@ class WpcomLegacyNonLatinRedirectsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Make sure redirects are added
+	 * Make sure redirects are added and redirect
 	 */
-	function test_insert_nonlatin_redirect() {
+	function test_nonlatin_redirect() {
 
 		// Set our from/to URLs
 		$from = '/JP納豆'; // example from https://www.w3.org/International/articles/idn-and-iri/
 		$to = 'http://example.com';
 
+		// Test inserts
 		$redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
 
 		$this->assertTrue( $redirect );
 
-	}
-
-	/**
-	 * Make sure redirects are stored
-	 */
-	function test_get_nonlatin_redirect() {
-
-		$from = '/JP納豆';
-		$to = 'http://example.com';
-
+		// Test redirect
 		$redirect = WPCOM_Legacy_Redirector::get_redirect_uri( $from );
 
 		$this->assertEquals( $redirect, $to );
 
 	}
-
 
 }
 

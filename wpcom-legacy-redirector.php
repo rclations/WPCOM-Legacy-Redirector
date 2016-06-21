@@ -128,8 +128,12 @@ class WPCOM_Legacy_Redirector {
 
 		if ( $redirect_post_id ) {
 			$redirect_post = get_post( $redirect_post_id );
+			if ( ! $redirect_post instanceof WP_Post ) {
+				// If redirect post object doesn't exist, reset cache
+				wp_cache_set( $url_hash, 0, self::CACHE_GROUP );
 
-			if ( 0 !== $redirect_post->post_parent ) {
+				return false;
+			} elseif ( 0 !== $redirect_post->post_parent ) {
 				return get_permalink( $redirect_post->post_parent );
 			} elseif ( ! empty( $redirect_post->post_excerpt ) ) {
 				return esc_url_raw( $redirect_post->post_excerpt );

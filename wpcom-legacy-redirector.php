@@ -73,7 +73,7 @@ class WPCOM_Legacy_Redirector {
  	 */
 	static function insert_legacy_redirect( $from_url, $redirect_to ) {
 
-		if ( !( defined( WP_CLI ) && WP_CLI ) && !is_admin() ) {
+		if ( ! ( defined( 'WP_CLI' ) && WP_CLI ) && ! is_admin() && ! apply_filters( 'wpcom_legacy_redirector_allow_insert', false ) ) {
 			// never run on the front end
 			return false;
 		}

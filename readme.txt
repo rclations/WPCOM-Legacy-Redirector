@@ -2,8 +2,8 @@
 Contributors: automattic, wpcomvip, batmoo, betzster, davidbinda, olope, emrikol, philipjohn
 Tags: redirects, redirector, redirect
 Requires at least: 4.5
-Tested up to: 4.5
-Stable tag: 1.1.0
+Tested up to: 4.5.3
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,15 @@ Redirects are stored as a custom post type and use the following fields:
 Please contact us before using this plugin.
 
 == Changelog ==
+
+= 1.2.0 =
+* Composer support
+* Introduced `wpcom_legacy_redirector_redirect_status` filter for redirect status code  (props spacedmonkey)
+* Reset cache when a redirect post does not exist
+* Introduce the `wpcom_legacy_redirector_allow_insert` filter to enable inserts outside of WP CLI
+* Fix for WP-CLI check
+
+props spacedmonkey, bswatson 
 
 = 1.1.0 =
 * Introduce unit tests

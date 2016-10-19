@@ -93,6 +93,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		}
 
 		global $wpdb;
+		$row = 0;
 		if ( ( $handle = fopen( $assoc_args['csv'], "r" ) ) !== FALSE ) {
 			while ( ( $data = fgetcsv( $handle, 2000, "," ) ) !== FALSE ) {
 				$row++;

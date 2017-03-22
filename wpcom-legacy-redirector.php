@@ -107,7 +107,7 @@ class WPCOM_Legacy_Redirector {
 
 		switch ( $mode ) {
 			case 'update':
-				$args[ 'ID' ] = self::get_redirect_post_id( $from_url );
+				$args[ 'ID' ] = self::get_redirect_post_id( $from_url, false );
 				if ( 0 === wp_update_post( $args ) ) {
 					return new WP_Error( 'failed-redirect-update', 'Redirect update failed for unknown reason' );
 				}
@@ -140,7 +140,7 @@ class WPCOM_Legacy_Redirector {
 			return false;
 		}
 
-		$post_id = self::get_redirect_post_id( $from_url );
+		$post_id = self::get_redirect_post_id( $from_url, false);
 
 		//sanity check that we are deleting only the correct post_type
 		if ( get_post_type( $post_id ) !== self::POST_TYPE ) {
@@ -190,21 +190,31 @@ class WPCOM_Legacy_Redirector {
 		return false;
 	}
 
-	static function get_redirect_post_id( $url ) {
+	static function get_redirect_post_id( $url, $strict = true ) {
 		global $wpdb;
 
 		$url_hash = self::get_url_hash( $url );
 
 		$redirect_post_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::POST_TYPE, $url_hash ) );
 
-		if ( ! $redirect_post_id )
+		if ( !$redirect_post_id && !$strict ) {
+			// if we have a trailing slash, try without.  If we don't try with
+			if ( substr( $url, -1 ) === '/' ) {
+				$url = rtrim( $url, '/' );
+			}else{
+				$url = $url . '/';
+			}
+
+			$url_hash = self::get_url_hash( $url );
+
+			$redirect_post_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::POST_TYPE, $url_hash ) );
+		}
+
+		if ( !$redirect_post_id ) {
 			$redirect_post_id = 0;
+		}
 
 		return $redirect_post_id;
-	}
-
-	private static function get_url_hash( $url ) {
-		return md5( $url );
 	}
 
 	/**

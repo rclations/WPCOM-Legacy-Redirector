@@ -3,6 +3,48 @@
 class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 	/**
+	 * Find domains redirected to, useful to populate the allowed_redirect_hosts filter.
+	 *
+	 * @subcommand find-domains
+	 */
+	function find_domains( $args, $assoc_args ) {
+		$posts_per_page = 500;
+		$paged = 1;
+
+		$domains = array();
+		$total_redirects = wp_count_posts( WPCOM_Legacy_Redirector::POST_TYPE );
+
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Finding domains', array_sum( (array) $total_redirects ) );
+		do {
+			$posts = get_posts( array(
+				'post_type' => WPCOM_Legacy_Redirector::POST_TYPE,
+				'posts_per_page' => $posts_per_page,
+				'paged'          => $paged,
+			) );
+
+			foreach ( $posts as $post ) {
+				$progress->tick();
+				if ( '' !== $post->post_excerpt ) {
+					if ( wp_parse_url( $post->post_excerpt, PHP_URL_HOST ) ) {
+						$domains[] = wp_parse_url( $post->post_excerpt, PHP_URL_HOST );
+					}
+				}
+			}
+
+			// Pause.
+			sleep(1);
+			$paged++;
+
+		} while ( count( $posts ) );
+
+		$progress->finish();
+
+		foreach ( array_unique( $domains ) as $domain ) {
+			WP_CLI::line( $domain );
+		}
+	}
+
+	/**
  	 * Insert a single redirect
  	 *
  	 * @subcommand insert-redirect

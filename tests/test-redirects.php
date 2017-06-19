@@ -62,7 +62,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
             'redirect_simple_protected' => array(
                 '/simple-redirectA',
                 'http://example.com',
-                'simple-redirect/?utm_source=XYZ',
+                '/simple-redirectA/?utm_source=XYZ',
                 'http://example.com/?utm_source=XYZ'
             ),
 
@@ -84,7 +84,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
             'redirect_multiple_protected' => array(
                 '/simple-redirectC',
                 'http://example.com',
-                'simple-redirectC/?utm_source=XYZ&utm_medium=FALSE&utm_campaign=543',
+                '/simple-redirectC/?utm_source=XYZ&utm_medium=FALSE&utm_campaign=543',
                 'http://example.com/?utm_source=XYZ&utm_medium=FALSE&utm_campaign=543'
             )
         );
@@ -94,6 +94,15 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
      * @dataProvider get_protected_redirect_data
      */
 	function test_protected_query_redirect( $from, $to, $protected_from, $protected_to ) {
+        add_filter( 'wpcom_legacy_redirector_preserve_query_params', function( $preserved_params ){
+            array_push( $preserved_params,
+                'utm_source',
+                'utm_medium',
+                'utm_campaign'
+            );
+            return $preserved_params;
+        } );
+
         $redirect = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from, $to );
         $this->assertTrue( $redirect, 'insert_legacy_redirect failed' );
 

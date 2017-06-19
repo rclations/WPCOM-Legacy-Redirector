@@ -60,30 +60,30 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
     public function get_protected_redirect_data() {
         return array(
             'redirect_simple_protected' => array(
-                '/simple-redirectA',
-                'http://example.com',
+                '/simple-redirectA/',
+                'http://example.com/',
                 '/simple-redirectA/?utm_source=XYZ',
                 'http://example.com/?utm_source=XYZ'
             ),
 
             'redirect_protected_with_querystring' => array(
-                '/b-redirect?with=query-string',
-                'http://example.com',
-                '/b-redirect?with=query-string&utm_medium=123',
+                '/b-redirect/?with=query-string',
+                'http://example.com/',
+                '/b-redirect/?with=query-string&utm_medium=123',
                 'http://example.com/?utm_medium=123'
             ),
 
             'redirect_protected_with_hashes' => array(
                 // The plugin should strip the hash and only store the URL path.
-                '/hash-redirectA#with-hash',
-                'http://example.com',
+                '/hash-redirectA/#with-hash',
+                'http://example.com/',
                 '/hash-redirectA#with-hash/?utm_source=SDF',
                 'http://example.com/?utm_source=SDF'
             ),
 
             'redirect_multiple_protected' => array(
-                '/simple-redirectC',
-                'http://example.com',
+                '/simple-redirectC/',
+                'http://example.com/',
                 '/simple-redirectC/?utm_source=XYZ&utm_medium=FALSE&utm_campaign=543',
                 'http://example.com/?utm_source=XYZ&utm_medium=FALSE&utm_campaign=543'
             )

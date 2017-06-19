@@ -77,7 +77,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
                 // The plugin should strip the hash and only store the URL path.
                 '/hash-redirectA/#with-hash',
                 'http://example.com/',
-                '/hash-redirectA#with-hash/?utm_source=SDF',
+                '/hash-redirectA/#with-hash?utm_source=SDF',
                 'http://example.com/?utm_source=SDF'
             ),
 

@@ -125,8 +125,10 @@ class WPCOM_Legacy_Redirector {
 		if ( isset( $components['query'] ) ) {
             parse_str($components['query'] , $param_values);
             foreach ($protected_params as $protected_param) {
-                $protected_param_values[$protected_param] = $param_values[$protected_param];
-                $url = remove_query_arg($protected_param, $url);
+                if( ! empty( $param_values[$protected_param] ) ) {
+                    $protected_param_values[$protected_param] = $param_values[$protected_param];
+                    $url = remove_query_arg($protected_param, $url);
+                }
             }
         }
 		$url_hash = self::get_url_hash( $url );

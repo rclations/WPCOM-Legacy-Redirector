@@ -121,10 +121,13 @@ class WPCOM_Legacy_Redirector {
         $protected_params = apply_filters( 'wpcom_legacy_redirector_preserve_query_params', array(), $url );
 		$protected_param_values = array();
 		$param_values = array();
-        parse_str( $_SERVER['QUERY_STRING'], $param_values );
-        foreach( $protected_params as $protected_param ) {
-            $protected_param_values[ $protected_param ] = $param_values[ $protected_param ];
-            $url = remove_query_arg( $protected_param, $url );
+        $components = wp_parse_url( $url );
+		if ( isset( $components['query'] ) ) {
+            parse_str($components['query'] , $param_values);
+            foreach ($protected_params as $protected_param) {
+                $protected_param_values[$protected_param] = $param_values[$protected_param];
+                $url = remove_query_arg($protected_param, $url);
+            }
         }
 		$url_hash = self::get_url_hash( $url );
 

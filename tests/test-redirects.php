@@ -95,11 +95,11 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
         );
     }
 
-    /**
-     * Verify that whitelisted parameters are maintained on final redirect urls.
-     *
-     * @dataProvider get_protected_redirect_data
-     */
+	/**
+	 * Verify that whitelisted parameters are maintained on final redirect urls.
+	 *
+	 * @dataProvider get_protected_redirect_data
+	 */
 	function test_protected_query_redirect( $from, $to, $protected_from, $protected_to ) {
         add_filter( 'wpcom_legacy_redirector_preserve_query_params', function( $preserved_params ){
             array_push( $preserved_params,

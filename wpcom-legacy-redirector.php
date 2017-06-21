@@ -126,16 +126,16 @@ class WPCOM_Legacy_Redirector {
 		$components = wp_parse_url( $url );
 		if ( isset( $components['query'] ) ) { // Verify Query Params exist.
 
-            // Parse Query String to Associated Array.
-            parse_str($components['query'], $param_values);
-            // For every white listed param save value and strip from url
-            foreach ($protected_params as $protected_param) {
-                if (!empty($param_values[$protected_param])) {
-                    $protected_param_values[$protected_param] = $param_values[$protected_param];
-                    $url = remove_query_arg($protected_param, $url);
-                }
-            }
-        }
+			// Parse Query String to Associated Array.
+			parse_str($components['query'], $param_values);
+ 			// For every white listed param save value and strip from url
+			foreach ($protected_params as $protected_param) {
+				if (!empty($param_values[$protected_param])) {
+					$protected_param_values[$protected_param] = $param_values[$protected_param];
+					$url = remove_query_arg($protected_param, $url);
+				}
+			}
+		}
 
 		$url_hash = self::get_url_hash( $url );
 

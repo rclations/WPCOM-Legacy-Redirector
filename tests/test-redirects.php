@@ -57,6 +57,11 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 	}
 
 
+    /**
+     * Data Provider of Redirect Rules and test urls for Protected Params
+     *
+     * @return array
+     */
     public function get_protected_redirect_data() {
         return array(
             'redirect_simple_protected' => array(
@@ -91,6 +96,8 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
     }
 
     /**
+     * Verify that whitelisted parameters are maintained on final redirect urls.
+     *
      * @dataProvider get_protected_redirect_data
      */
 	function test_protected_query_redirect( $from, $to, $protected_from, $protected_to ) {

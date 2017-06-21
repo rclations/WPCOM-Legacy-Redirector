@@ -118,19 +118,25 @@ class WPCOM_Legacy_Redirector {
 		}
 
 		// White list of Params that should be pass through as is.
-        $protected_params = apply_filters( 'wpcom_legacy_redirector_preserve_query_params', array(), $url );
+		$protected_params = apply_filters( 'wpcom_legacy_redirector_preserve_query_params', array(), $url );
 		$protected_param_values = array();
 		$param_values = array();
-        $components = wp_parse_url( $url );
-		if ( isset( $components['query'] ) ) {
-            parse_str($components['query'] , $param_values);
+
+		// Parse URL to get Query Params.
+		$components = wp_parse_url( $url );
+		if ( isset( $components['query'] ) ) { // Verify Query Params exist.
+
+            // Parse Query String to Associated Array.
+            parse_str($components['query'], $param_values);
+            // For every white listed param save value and strip from url
             foreach ($protected_params as $protected_param) {
-                if( ! empty( $param_values[$protected_param] ) ) {
+                if (!empty($param_values[$protected_param])) {
                     $protected_param_values[$protected_param] = $param_values[$protected_param];
                     $url = remove_query_arg($protected_param, $url);
                 }
             }
         }
+
 		$url_hash = self::get_url_hash( $url );
 
 		$redirect_post_id = wp_cache_get( $url_hash, self::CACHE_GROUP );
@@ -140,7 +146,7 @@ class WPCOM_Legacy_Redirector {
 			wp_cache_add( $url_hash, $redirect_post_id, self::CACHE_GROUP );
 		}
 
-        if ( $redirect_post_id ) {
+		if ( $redirect_post_id ) {
 			$redirect_post = get_post( $redirect_post_id );
 			if ( ! $redirect_post instanceof WP_Post ) {
 				// If redirect post object doesn't exist, reset cache
@@ -148,12 +154,13 @@ class WPCOM_Legacy_Redirector {
 
 				return false;
 			} elseif ( 0 !== $redirect_post->post_parent ) {
-				return add_query_arg( $protected_param_values, get_permalink( $redirect_post->post_parent ) );
+				return add_query_arg( $protected_param_values, get_permalink( $redirect_post->post_parent ) ); // Add Whitelisted Params to the Redirect URL.
 			} elseif ( ! empty( $redirect_post->post_excerpt ) ) {
-				return add_query_arg( $protected_param_values, esc_url_raw( $redirect_post->post_excerpt ) );
+				return add_query_arg( $protected_param_values, esc_url_raw( $redirect_post->post_excerpt ) ); // Add Whitelisted Params to the Redirect URL
 			}
 		}
-        return false;
+
+		return false;
 	}
 
 	static function get_redirect_post_id( $url ) {

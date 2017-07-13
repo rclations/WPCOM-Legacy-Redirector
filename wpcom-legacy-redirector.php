@@ -123,11 +123,11 @@ class WPCOM_Legacy_Redirector {
 		$param_values = array();
 
 		// Parse URL to get Query Params.
-		$components = wp_parse_url( $url );
-		if ( isset( $components['query'] ) ) { // Verify Query Params exist.
+		$query_params = wp_parse_url( $url, PHP_URL_QUERY );
+		if ( ! empty( $query_params ) ) { // Verify Query Params exist.
 
 			// Parse Query String to Associated Array.
-			parse_str($components['query'], $param_values);
+			parse_str($query_params, $param_values);
  			// For every white listed param save value and strip from url
 			foreach ($protected_params as $protected_param) {
 				if (!empty($param_values[$protected_param])) {

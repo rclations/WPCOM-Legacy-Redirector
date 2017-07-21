@@ -56,7 +56,6 @@ class WPCOM_Legacy_Redirector {
 
 		if ( $request_path ) {
 			$redirect_uri = self::get_redirect_uri( $request_path );
-
 			if ( $redirect_uri ) {
 				header( 'X-legacy-redirect: HIT' );
 				$redirect_status = apply_filters( 'wpcom_legacy_redirector_redirect_status', 301, $url );
@@ -118,6 +117,26 @@ class WPCOM_Legacy_Redirector {
 			return false;
 		}
 
+		// White list of Params that should be pass through as is.
+		$protected_params = apply_filters( 'wpcom_legacy_redirector_preserve_query_params', array(), $url );
+		$protected_param_values = array();
+		$param_values = array();
+
+		// Parse URL to get Query Params.
+		$query_params = wp_parse_url( $url, PHP_URL_QUERY );
+		if ( ! empty( $query_params ) ) { // Verify Query Params exist.
+
+			// Parse Query String to Associated Array.
+			parse_str($query_params, $param_values);
+ 			// For every white listed param save value and strip from url
+			foreach ($protected_params as $protected_param) {
+				if (!empty($param_values[$protected_param])) {
+					$protected_param_values[$protected_param] = $param_values[$protected_param];
+					$url = remove_query_arg($protected_param, $url);
+				}
+			}
+		}
+
 		$url_hash = self::get_url_hash( $url );
 
 		$redirect_post_id = wp_cache_get( $url_hash, self::CACHE_GROUP );
@@ -135,9 +154,9 @@ class WPCOM_Legacy_Redirector {
 
 				return false;
 			} elseif ( 0 !== $redirect_post->post_parent ) {
-				return get_permalink( $redirect_post->post_parent );
+				return add_query_arg( $protected_param_values, get_permalink( $redirect_post->post_parent ) ); // Add Whitelisted Params to the Redirect URL.
 			} elseif ( ! empty( $redirect_post->post_excerpt ) ) {
-				return esc_url_raw( $redirect_post->post_excerpt );
+				return add_query_arg( $protected_param_values, esc_url_raw( $redirect_post->post_excerpt ) ); // Add Whitelisted Params to the Redirect URL
 			}
 		}
 

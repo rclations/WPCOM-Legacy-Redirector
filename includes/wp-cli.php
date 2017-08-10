@@ -25,8 +25,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			foreach ( $posts as $post ) {
 				$progress->tick();
 				if ( '' !== $post->post_excerpt ) {
-					if ( wp_parse_url( $post->post_excerpt, PHP_URL_HOST ) ) {
-						$domains[] = wp_parse_url( $post->post_excerpt, PHP_URL_HOST );
+					$host = parse_url( $redirect_url, PHP_URL_HOST );
+					if ( $host ) {
+						$domains[] = $host;
 					}
 				}
 			}
@@ -99,7 +100,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				$i++;
 				WP_CLI::line( "Adding redirect for {$redirect->post_id} from {$redirect->meta_value}" );
 				WP_CLI::line( "-- $i of $total (starting at offset $offset)" );
-				
+
 				if ( true === $skip_dupes && 0 !== WPCOM_Legacy_Redirector::get_redirect_post_id( parse_url( $redirect->meta_value, PHP_URL_PATH ) ) ) {
 					WP_CLI::line( "Redirect for {$redirect->post_id} from {$redirect->meta_value} already exists. Skipping" );
 					continue;

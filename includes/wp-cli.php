@@ -8,39 +8,55 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 * @subcommand find-domains
 	 */
 	function find_domains( $args, $assoc_args ) {
+		global $wpdb;
+
 		$posts_per_page = 500;
 		$paged = 1;
 
 		$domains = array();
-		$total_redirects = wp_count_posts( WPCOM_Legacy_Redirector::POST_TYPE );
 
-		$progress = \WP_CLI\Utils\make_progress_bar( 'Finding domains', array_sum( (array) $total_redirects ) );
+		$total_redirects = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s AND post_excerpt LIKE %s",
+				WPCOM_Legacy_Redirector::POST_TYPE,
+				'http%'
+			)
+		);
+
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Finding domains', (int) $total_redirects );
 		do {
-			$posts = get_posts( array(
-				'post_type' => WPCOM_Legacy_Redirector::POST_TYPE,
-				'posts_per_page' => $posts_per_page,
-				'paged'          => $paged,
-			) );
+			$redirect_urls = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT post_excerpt FROM $wpdb->posts WHERE post_type = %s AND post_excerpt LIKE %s ORDER BY ID ASC LIMIT %d, %d",
+					WPCOM_Legacy_Redirector::POST_TYPE,
+					'http%',
+					( $paged * $posts_per_page ),
+					$posts_per_page
+				)
+			);
 
-			foreach ( $posts as $post ) {
+			foreach ( $redirect_urls as $redirect_url ) {
 				$progress->tick();
-				if ( '' !== $post->post_excerpt ) {
-					$host = parse_url( $redirect_url, PHP_URL_HOST );
-					if ( $host ) {
-						$domains[] = $host;
+				if ( ! empty( $redirect_url ) ) {
+					$redirect_host = parse_url( $redirect_url, PHP_URL_HOST );
+					if ( $redirect_host ) {
+						$domains[] = $redirect_host;
 					}
 				}
 			}
 
 			// Pause.
-			sleep(1);
+			sleep( 1 );
 			$paged++;
-
-		} while ( count( $posts ) );
+		} while ( count( $redirect_urls ) );
 
 		$progress->finish();
 
-		foreach ( array_unique( $domains ) as $domain ) {
+		$domains = array_unique( $domains );
+
+		WP_CLI::line( sprintf( 'Found %s unique outbound domains', number_format( count( $domains ) ) ) );
+
+		foreach ( $domains as $domain ) {
 			WP_CLI::line( $domain );
 		}
 	}

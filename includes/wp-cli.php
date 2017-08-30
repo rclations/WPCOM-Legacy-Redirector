@@ -3,6 +3,65 @@
 class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 	/**
+	 * Find domains redirected to, useful to populate the allowed_redirect_hosts filter.
+	 *
+	 * @subcommand find-domains
+	 */
+	function find_domains( $args, $assoc_args ) {
+		global $wpdb;
+
+		$posts_per_page = 500;
+		$paged = 1;
+
+		$domains = array();
+
+		$total_redirects = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s AND post_excerpt LIKE %s",
+				WPCOM_Legacy_Redirector::POST_TYPE,
+				'http%'
+			)
+		);
+
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Finding domains', (int) $total_redirects );
+		do {
+			$redirect_urls = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT post_excerpt FROM $wpdb->posts WHERE post_type = %s AND post_excerpt LIKE %s ORDER BY ID ASC LIMIT %d, %d",
+					WPCOM_Legacy_Redirector::POST_TYPE,
+					'http%',
+					( $paged * $posts_per_page ),
+					$posts_per_page
+				)
+			);
+
+			foreach ( $redirect_urls as $redirect_url ) {
+				$progress->tick();
+				if ( ! empty( $redirect_url ) ) {
+					$redirect_host = parse_url( $redirect_url, PHP_URL_HOST );
+					if ( $redirect_host ) {
+						$domains[] = $redirect_host;
+					}
+				}
+			}
+
+			// Pause.
+			sleep( 1 );
+			$paged++;
+		} while ( count( $redirect_urls ) );
+
+		$progress->finish();
+
+		$domains = array_unique( $domains );
+
+		WP_CLI::line( sprintf( 'Found %s unique outbound domains', number_format( count( $domains ) ) ) );
+
+		foreach ( $domains as $domain ) {
+			WP_CLI::line( $domain );
+		}
+	}
+
+	/**
  	 * Insert a single redirect
  	 *
  	 * @subcommand insert-redirect
@@ -57,7 +116,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				$i++;
 				WP_CLI::line( "Adding redirect for {$redirect->post_id} from {$redirect->meta_value}" );
 				WP_CLI::line( "-- $i of $total (starting at offset $offset)" );
-				
+
 				if ( true === $skip_dupes && 0 !== WPCOM_Legacy_Redirector::get_redirect_post_id( parse_url( $redirect->meta_value, PHP_URL_PATH ) ) ) {
 					WP_CLI::line( "Redirect for {$redirect->post_id} from {$redirect->meta_value} already exists. Skipping" );
 					continue;

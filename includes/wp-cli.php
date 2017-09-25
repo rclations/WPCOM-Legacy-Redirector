@@ -62,11 +62,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	}
 
 	/**
- 	 * Insert a single redirect
- 	 *
- 	 * @subcommand insert-redirect
- 	 * @synopsis <from_url> <to_url>
- 	 */
+	 * Insert a single redirect
+	 *
+	 * @subcommand insert-redirect
+	 * @synopsis <from_url> <to_url>
+	 */
 	function insert_redirect( $args, $assoc_args ) {
 		$from_url = esc_url_raw( $args[0] );
 
@@ -85,11 +85,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	}
 
 	/**
- 	 * Bulk import redirects from URLs stored as meta values for posts.
- 	 *
- 	 * @subcommand import-from-meta
- 	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--dry_run]
- 	 */
+	 * Bulk import redirects from URLs stored as meta values for posts.
+	 *
+	 * @subcommand import-from-meta
+	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--dry_run]
+	 */
 	function import_from_meta( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
 
@@ -97,7 +97,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$offset = isset( $assoc_args['start'] ) ? intval( $assoc_args['start'] ) : 0;
 		$end_offset = isset( $assoc_args['end'] ) ? intval( $assoc_args['end'] ) : 99999999;;
 		$meta_key = isset( $assoc_args['meta_key'] ) ? sanitize_key( $assoc_args['meta_key'] ) : '';
-		$skip_dupes = isset( $assoc_args['skip_dupes'] ) ? (bool)intval( $assoc_args['skip_dupes'] ) : false;
+		$skip_dupes = isset( $assoc_args['skip_dupes'] ) ? (bool) intval( $assoc_args['skip_dupes'] ) : false;
 		$dry_run = isset( $assoc_args['dry_run'] ) ? true : false;
 
 		if ( true === $dry_run ) {
@@ -133,17 +133,17 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				}
 			}
 			$offset += 1000;
-		} while( $redirects && $offset < $end_offset );
+		} while ( $redirects && $offset < $end_offset );
 	}
 
 	/**
- 	 * Bulk import redirects from a CSV file matching the following structure:
- 	 *
- 	 * redirect_from_path,(redirect_to_post_id|redirect_to_path|redirect_to_url)
- 	 *
- 	 * @subcommand import-from-csv
- 	 * @synopsis --csv=<path-to-csv>
- 	 */
+	 * Bulk import redirects from a CSV file matching the following structure:
+	 *
+	 * redirect_from_path,(redirect_to_post_id|redirect_to_path|redirect_to_url)
+	 *
+	 * @subcommand import-from-csv
+	 * @synopsis --csv=<path-to-csv>
+	 */
 	function import_from_csv( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
 

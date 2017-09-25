@@ -8,7 +8,7 @@
  * Author URI: https://vip.wordpress.com
  *
  * This is a no-frills plugin (no UI, for example). Data entry needs to be bulk-loaded via the wp-cli commands provided or custom scripts.
- * 
+ *
  * Redirects are stored as a custom post type and use the following fields:
  *
  * - post_name for the md5 hash of the "from" path or URL.
@@ -34,7 +34,7 @@ class WPCOM_Legacy_Redirector {
 		add_action( 'init', array( __CLASS__, 'init' ) );
 		add_filter( 'template_redirect', array( __CLASS__, 'maybe_do_redirect' ), 0 ); // hook in early, before the canonical redirect
 	}
-	
+
 	static function init() {
 		register_post_type( self::POST_TYPE, array(
 			'public' => false,
@@ -66,11 +66,11 @@ class WPCOM_Legacy_Redirector {
 	}
 
 	/**
- 	 *
- 	 * @param string $from_url URL or path that should be redirected; should have leading slash if path.
- 	 * @param int|string $redirect_to The post ID or URL to redirect to.
- 	 * @return bool|WP_Error Error if invalid redirect URL specified or if the URI already has a rule; false if not is_admin, true otherwise.
- 	 */
+	 *
+	 * @param string $from_url URL or path that should be redirected; should have leading slash if path.
+	 * @param int|string $redirect_to The post ID or URL to redirect to.
+	 * @return bool|WP_Error Error if invalid redirect URL specified or if the URI already has a rule; false if not is_admin, true otherwise.
+	 */
 	static function insert_legacy_redirect( $from_url, $redirect_to ) {
 
 		if ( ! ( defined( 'WP_CLI' ) && WP_CLI ) && ! is_admin() && ! apply_filters( 'wpcom_legacy_redirector_allow_insert', false ) ) {
@@ -111,7 +111,7 @@ class WPCOM_Legacy_Redirector {
 	}
 
 	static function get_redirect_uri( $url ) {
-		
+
 		$url = self::normalise_url( $url );
 		if ( is_wp_error( $url ) ) {
 			return false;
@@ -127,12 +127,12 @@ class WPCOM_Legacy_Redirector {
 		if ( ! empty( $query_params ) ) { // Verify Query Params exist.
 
 			// Parse Query String to Associated Array.
-			parse_str($query_params, $param_values);
- 			// For every white listed param save value and strip from url
-			foreach ($protected_params as $protected_param) {
-				if (!empty($param_values[$protected_param])) {
-					$protected_param_values[$protected_param] = $param_values[$protected_param];
-					$url = remove_query_arg($protected_param, $url);
+			parse_str( $query_params, $param_values );
+			// For every white listed param save value and strip from url
+			foreach ( $protected_params as $protected_param ) {
+				if ( ! empty( $param_values[ $protected_param ] ) ) {
+					$protected_param_values[ $protected_param ] = $param_values[ $protected_param ];
+					$url = remove_query_arg( $protected_param, $url );
 				}
 			}
 		}
@@ -219,7 +219,7 @@ class WPCOM_Legacy_Redirector {
 		$normalised_url = $components['path'];
 
 		// Only append '?' and the query if there is one
-		if( ! empty( $components['query'] ) ) {
+		if ( ! empty( $components['query'] ) ) {
 			$normalised_url = $components['path'] . '?' . $components['query'];
 		}
 

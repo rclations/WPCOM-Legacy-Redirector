@@ -70,10 +70,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	function insert_redirect( $args, $assoc_args ) {
 		$from_url = esc_url_raw( $args[0] );
 
-		if ( is_numeric( $args[1] ) )
+		if ( is_numeric( $args[1] ) ) {
 			$to_url = absint( $args[1] );
-		else
+		} else {
 			$to_url = esc_url_raw( $args[1] );
+		}
 
 		$inserted = WPCOM_Legacy_Redirector::insert_legacy_redirect( $from_url, $to_url );
 
@@ -127,8 +128,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				}
 
 				if ( 0 == $i % 100 ) {
-					if ( function_exists( 'stop_the_insanity' ) )
+					if ( function_exists( 'stop_the_insanity' ) ) {
 						stop_the_insanity();
+					}
 					sleep( 1 );
 				}
 			}
@@ -163,8 +165,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect_from, $redirect_to );
 
 				if ( 0 == $row % 100 ) {
-					if ( function_exists( 'stop_the_insanity' ) )
+					if ( function_exists( 'stop_the_insanity' ) ) {
 						stop_the_insanity();
+					}
 					sleep( 1 );
 				}
 			}

@@ -44,8 +44,9 @@ class WPCOM_Legacy_Redirector {
 	static function maybe_do_redirect() {
 		// Avoid the overhead of running this on every single pageload.
 		// We move the overhead to the 404 page but the trade-off for site performance is worth it.
-		if ( ! is_404() )
+		if ( ! is_404() ) {
 			return;
+		}
 
 		$url = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
 
@@ -170,8 +171,9 @@ class WPCOM_Legacy_Redirector {
 
 		$redirect_post_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::POST_TYPE, $url_hash ) );
 
-		if ( ! $redirect_post_id )
+		if ( ! $redirect_post_id ) {
 			$redirect_post_id = 0;
+		}
 
 		return $redirect_post_id;
 	}

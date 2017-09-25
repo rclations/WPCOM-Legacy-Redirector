@@ -11,7 +11,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		global $wpdb;
 
 		$posts_per_page = 500;
-		$paged = 1;
+		$paged = 0;
 
 		$domains = array();
 

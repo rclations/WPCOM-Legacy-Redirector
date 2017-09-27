@@ -271,7 +271,8 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 			foreach ( $redirect_urls as $redirect_url ) {
 
-				$from_url = home_url( $redirect_url->post_title );
+				$from_path = $redirect_url->post_title;
+				$from_url = home_url( $from_path );
 
 				if ( ! empty( $redirect_url->post_excerpt ) ) {
 					$to_url = $redirect_url->post_excerpt;
@@ -279,7 +280,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					if ( ! wp_validate_redirect( $to_url, false ) ) {
 						$notices[] = array(
 							'id'        => $redirect_url->ID,
-							'from_url'  => $from_url,
+							'from_url'  => $from_path,
 							'to_url'    => $to_url,
 							'message'   => 'failed wp_validate_redirect()',
 						);
@@ -291,7 +292,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					if ( ! $parent instanceof WP_Post ) {
 						$notices[] = array(
 							'id'        => $redirect_url->ID,
-							'from_url'  => $from_url,
+							'from_url'  => $from_path,
 							'to_url'    => $redirect_url->post_parent,
 							'message'   => 'Redirecting to a post id that is not an instance of WP_Post.',
 						);
@@ -301,7 +302,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					if ( 'publish' !== $parent->post_status ) {
 						$notices[] = array(
 							'id'        => $redirect_url->ID,
-							'from_url'  => $from_url,
+							'from_url'  => $from_path,
 							'to_url'    => $redirect_url->post_parent,
 							'message'   => 'Attempting to redirect to an unpublished post.',
 						);
@@ -321,7 +322,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						if ( $assoc_args['verbose'] ) {
 							$notices[] = array(
 								'id'        => $redirect_url->ID,
-								'from_url'  => $from_url,
+								'from_url'  => $from_path,
 								'to_url'    => $to_url,
 								'message'   => 'Verified',
 							);
@@ -330,7 +331,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					} else {
 						$notices[] = array(
 							'id'        => $redirect_url->ID,
-							'from_url'  => $from_url,
+							'from_url'  => $from_path,
 							'to_url'    => $to_url,
 							'message'   => 'Mismatch: redirected to ' . $resulting_url,
 						);
@@ -339,14 +340,14 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				} elseif ( 2 == substr( $status, 0, 1 ) ) {
 					$notices[] = array(
 						'id'        => $redirect_url->ID,
-						'from_url'  => $from_url,
+						'from_url'  => $from_path,
 						'to_url'    => $to_url,
 						'message'   => 'Did not redirect - returned ' . $status,
 					);
 				} else {
 					$notices[] = array(
 						'id'        => $redirect_url->ID,
-						'from_url'  => $from_url,
+						'from_url'  => $from_path,
 						'to_url'    => $to_url,
 						'message'   => $status . ' ' . $status_message,
 					);

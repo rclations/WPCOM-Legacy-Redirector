@@ -11,7 +11,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		global $wpdb;
 
 		$posts_per_page = 500;
-		$paged = 1;
+		$paged = 0;
 
 		$domains = array();
 
@@ -175,6 +175,198 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		}
 	}
 
+	/**
+	 * Verify our redirects.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--status=<status>]:
+	 * : Filter by verification status.
+	 * ---
+	 * default: unverified
+	 * options:
+	 *   - unverified
+	 *   - verified
+	 *   - all
+	 * ---
+	 *
+	 * [--format=<format>]
+	 * : Render output in a particular format.
+	 * ---
+	 * default: csv
+	 * options:
+	 *   - table
+	 *   - json
+	 *   - yaml
+	 *   - csv
+	 * ---
+	 *
+	 * [--verbose]
+	 * : Print notifications to the console for passing URLs.
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp wpcom-legacy-redirector verify-redirects
+	 *
+	 * @subcommand verify-redirects
+	 * @synopsis [--status=<status>] [--format=<format>] [--verbose]
+	 */
+	function verify_redirects( $args, $assoc_args ) {
+		global $wpdb;
+
+		$status = \WP_CLI\Utils\get_flag_value( $assoc_args, 'status' );
+		switch( $status ){
+			case 'unverified':
+				$status = 'draft';
+				break;
+			case 'verified':
+				$status = 'publish';
+				break;
+		}
+		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
+
+		$posts_per_page = 100;
+		$paged = 0;
+		$notices = array();
+
+		if ( 'all' === $status ) {
+			$total_redirects = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s",
+					WPCOM_Legacy_Redirector::POST_TYPE
+				)
+			);
+		} else {
+			$total_redirects = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s AND post_status = %s",
+					WPCOM_Legacy_Redirector::POST_TYPE,
+					$status
+				)
+			);
+		}
+
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying '. $total_redirects . ' redirects', (int) $total_redirects );
+		do {
+			if ( 'all' === $status ) {
+				$redirect_urls = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT ID, post_title, post_excerpt, post_name, post_parent FROM $wpdb->posts WHERE post_type = %s ORDER BY ID DESC LIMIT %d, %d",
+						WPCOM_Legacy_Redirector::POST_TYPE,
+						( $paged * $posts_per_page ),
+						$posts_per_page
+					)
+				);
+			} else {
+				$redirect_urls = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT ID, post_title, post_excerpt, post_name, post_parent FROM $wpdb->posts WHERE post_type = %s AND post_status = %s ORDER BY ID DESC LIMIT %d, %d",
+						WPCOM_Legacy_Redirector::POST_TYPE,
+						$status,
+						( $paged * $posts_per_page ),
+						$posts_per_page
+					)
+				);
+			}
+
+			foreach ( $redirect_urls as $redirect_url ) {
+
+				$from_url = home_url( $redirect_url->post_title );
+
+				if ( ! empty( $redirect_url->post_excerpt ) ) {
+					$to_url = $redirect_url->post_excerpt;
+
+					if ( ! wp_validate_redirect( $to_url, false ) ) {
+						$notices[] = array(
+							'id'        => $redirect_url->ID,
+							'from_url'  => $from_url,
+							'to_url'    => $to_url,
+							'message'   => 'failed wp_validate_redirect()',
+						);
+						continue;
+					}
+				} else {
+					$parent = get_post( $redirect_url->post_parent );
+
+					if ( ! $parent instanceof WP_Post ) {
+						$notices[] = array(
+							'id'        => $redirect_url->ID,
+							'from_url'  => $from_url,
+							'to_url'    => $redirect_url->post_parent,
+							'message'   => 'Redirecting to a post id that is not an instance of WP_Post.',
+						);
+						continue;
+					}
+
+					if ( 'publish' !== $parent->post_status ) {
+						$notices[] = array(
+							'id'        => $redirect_url->ID,
+							'from_url'  => $from_url,
+							'to_url'    => $redirect_url->post_parent,
+							'message'   => 'Attempting to redirect to an unpublished post.',
+						);
+						continue;
+					}
+
+					$to_url = get_permalink( $parent );
+				}
+
+				$from_url_head = wp_remote_head( $from_url );
+				$resulting_url = wp_remote_retrieve_header( $from_url_head, 'location' );
+				$status = wp_remote_retrieve_response_code( $from_url_head );
+				$status_message = wp_remote_retrieve_response_message( $from_url_head );
+
+				if ( 3 == substr( $status, 0, 1 ) ) {
+					if ( $to_url === $resulting_url ) {
+						if ( $assoc_args['verbose'] ) {
+							$notices[] = array(
+								'id'        => $redirect_url->ID,
+								'from_url'  => $from_url,
+								'to_url'    => $to_url,
+								'message'   => 'Verified',
+							);
+							wp_publish_post( $redirect_url->ID );
+						}
+					} else {
+						$notices[] = array(
+							'id'        => $redirect_url->ID,
+							'from_url'  => $from_url,
+							'to_url'    => $to_url,
+							'message'   => 'Mismatch: redirected to ' . $resulting_url,
+						);
+						continue;
+					}
+				} elseif ( 2 == substr( $status, 0, 1 ) ) {
+					$notices[] = array(
+						'id'        => $redirect_url->ID,
+						'from_url'  => $from_url,
+						'to_url'    => $to_url,
+						'message'   => 'Did not redirect - returned ' . $status,
+					);
+				} else {
+					$notices[] = array(
+						'id'        => $redirect_url->ID,
+						'from_url'  => $from_url,
+						'to_url'    => $to_url,
+						'message'   => $status . ' ' . $status_message,
+					);
+				}
+				$progress->tick();
+			}
+
+			// Pause.
+			sleep( 1 );
+			$paged++;
+		} while ( count( $redirect_urls ) );
+
+		$progress->finish();
+
+		if ( count( $notices ) > 0 ) {
+			WP_CLI\Utils\format_items( $format, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
+		} else {
+			echo WP_CLI::colorize( "%GAll of your redirects have been verified. Nice work!%n " );
+		}
+	}
 }
 
 WP_CLI::add_command( 'wpcom-legacy-redirector', 'WPCOM_Legacy_Redirector_CLI' );

@@ -86,9 +86,30 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 	/**
  	 * Bulk import redirects from URLs stored as meta values for posts.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--start=<start-offset>]
+	 *
+	 * [--end=<end-offset>]
+	 *
+	 * [--skip_dupes=<skip-dupes>]
+	 *
+	 * [--format=<format>]
+	 * : Render output in a particular format.
+	 * ---
+	 * default: csv
+	 * options:
+	 *   - table
+	 *   - json
+	 *   - yaml
+	 *   - csv
+	 * ---
+	 *
+	 * [--skip_dupes=<skip-dupes>]
  	 *
  	 * @subcommand import-from-meta
- 	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--dry_run]
+	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--format=<format>] [--dry_run]
  	 */
 	function import_from_meta( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
@@ -98,7 +119,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$end_offset = isset( $assoc_args['end'] ) ? intval( $assoc_args['end'] ) : 99999999;;
 		$meta_key = isset( $assoc_args['meta_key'] ) ? sanitize_key( $assoc_args['meta_key'] ) : '';
 		$skip_dupes = isset( $assoc_args['skip_dupes'] ) ? (bool)intval( $assoc_args['skip_dupes'] ) : false;
+		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 		$dry_run = isset( $assoc_args['dry_run'] ) ? true : false;
+		$notices = array();
 
 		if ( true === $dry_run ) {
 			WP_CLI::line( "---Dry Run---" );
@@ -123,7 +146,15 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				}
 
 				if ( false === $dry_run ) {
-					WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect->meta_value, $redirect->post_id );
+					$inserted = WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect->meta_value, $redirect->post_id );
+					if ( ! $inserted || is_wp_error( $inserted ) ) {
+						$failure_message = is_wp_error( $inserted ) ? implode( "\n", $inserted->get_error_messages() ) : 'Could not insert redirect';
+						$notices[] = array(
+							'redirect_from' => $redirect_from,
+							'redirect_to'   => $redirect_to,
+							'message'       => $failure_message,
+						);
+					}
 				}
 
 				if ( 0 == $i % 100 ) {
@@ -134,6 +165,12 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			}
 			$offset += 1000;
 		} while( $redirects && $offset < $end_offset );
+
+		if ( count( $notices ) > 0 ) {
+			WP_CLI\Utils\format_items( $format, $notices, array( 'redirect_from', 'redirect_to', 'message' ) );
+		} else {
+			echo WP_CLI::colorize( "%GAll of your redirects have been imported. Nice work!%n " );
+		}
 	}
 
 	/**
@@ -141,11 +178,26 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
  	 *
  	 * redirect_from_path,(redirect_to_post_id|redirect_to_path|redirect_to_url)
  	 *
+	 * ## OPTIONS
+	 *
+	 * [--format=<format>]
+	 * : Render output in a particular format.
+	 * ---
+	 * default: csv
+	 * options:
+	 *   - table
+	 *   - json
+	 *   - yaml
+	 *   - csv
+	 * ---
+	 *
  	 * @subcommand import-from-csv
- 	 * @synopsis --csv=<path-to-csv>
+	 * @synopsis --csv=<path-to-csv> [--format=<format>]
  	 */
 	function import_from_csv( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
+		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
+		$notices = array();
 
 		if ( empty( $assoc_args['csv'] ) || ! file_exists( $assoc_args['csv'] ) ) {
 			WP_CLI::error( "Invalid 'csv' file" );
@@ -160,7 +212,16 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				$redirect_to = $data[ 1 ];
 				WP_CLI::line( "Adding (CSV) redirect for {$redirect_from} to {$redirect_to}" );
 				WP_CLI::line( "-- at $row" );
-				WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect_from, $redirect_to );
+
+				$inserted = WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect_from, $redirect_to );
+				if ( ! $inserted || is_wp_error( $inserted ) ) {
+					$failure_message = is_wp_error( $inserted ) ? implode( "\n", $inserted->get_error_messages() ) : 'Could not insert redirect';
+					$notices[] = array(
+						'redirect_from' => $redirect_from,
+						'redirect_to'   => $redirect_to,
+						'message'       => $failure_message,
+					);
+				}
 
 				if ( 0 == $row % 100 ) {
 					if ( function_exists( 'stop_the_insanity' ) )
@@ -169,6 +230,12 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				}
 			}
 			fclose( $handle );
+
+			if ( count( $notices ) > 0 ) {
+				WP_CLI\Utils\format_items( $format, $notices, array( 'redirect_from', 'redirect_to', 'message' ) );
+			} else {
+				echo WP_CLI::colorize( "%GAll of your redirects have been imported. Nice work!%n " );
+			}
 		}
 	}
 

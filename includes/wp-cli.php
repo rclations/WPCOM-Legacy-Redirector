@@ -311,6 +311,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $redirect->post_excerpt,
 							'message'   => 'failed wp_validate_redirect()',
 						);
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
 						continue;
 					}
 
@@ -324,6 +327,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $to_url['raw'],
 							'message'   => 'Attempting to redirect to a nonexistent post id.',
 						);
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
 						continue;
 					}
 
@@ -334,6 +340,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $to_url['raw'],
 							'message'   => 'Attempting to redirect to an unpublished post.',
 						);
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
 						continue;
 					}
 
@@ -344,6 +353,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $to_url['raw'],
 							'message'   => 'Attempting to redirect to a private post type: ' . $redirect->parent_post_type,
 						);
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
 						continue;
 					}
 
@@ -371,11 +383,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 								'message'   => 'Verified',
 							);
 						}
-
-						if ( 'publish' !== $redirect->status ) {
-							$wpdb->update( $wpdb->posts, array( 'post_status' => 'publish' ), array( 'ID' => $redirect->ID ) );
-							clean_post_cache( $redirect->ID );
+						if ( 'publish' !== $redirect->post_status ) {
+							$update_redirect_status['publish'][] = $redirect->ID;
 						}
+						continue;
 
 					} elseif ( $resulting_url === $from_url . '/' ) {
 						$notices[] = array(
@@ -384,6 +395,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $to_url['raw'],
 							'message'   => 'Did not redirect to new page (only to add trailing slash).',
 						);
+
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
+						continue;
 					} else {
 						$notices[] = array(
 							'id'        => $redirect->ID,
@@ -391,6 +407,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'to_url'    => $to_url['raw'],
 							'message'   => 'Mismatch: redirected to ' . $resulting_url,
 						);
+
+						if ( 'draft' !== $redirect->poststatus ) {
+							$update_redirect_status['draft'][] = $redirect->ID;
+						}
 						continue;
 					}
 				} elseif ( 2 == substr( $redirect_status, 0, 1 ) ) {
@@ -400,6 +420,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						'to_url'    => $to_url['raw'],
 						'message'   => 'Did not redirect - returned ' . $redirect_status,
 					);
+
+					if ( 'draft' !== $redirect->poststatus ) {
+						$update_redirect_status['draft'][] = $redirect->ID;
+					}
+					continue;
 				} else {
 					$notices[] = array(
 						'id'        => $redirect->ID,
@@ -407,11 +432,25 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						'to_url'    => $to_url['raw'],
 						'message'   => $redirect_status . ' ' . $redirect_status_message,
 					);
+
+					if ( 'draft' !== $redirect->poststatus ) {
+						$update_redirect_status['draft'][] = $redirect->ID;
+					}
+					continue;
 				} // End if().
 			} // End foreach().
 
 			$paged++;
 		} while ( count( $redirects ) );
+
+		// Update redirect status
+		foreach ( $update_redirect_status as $status => $redirects_to_update ) {
+			foreach ( $redirects_to_update as $redirect_to_update ) {
+				$wpdb->update( $wpdb->posts, array( 'post_status' => $status ), array( 'ID' => $redirect_to_update ) );
+				clean_post_cache( $redirect_to_update );
+			}
+		}
+
 
 		$progress->finish();
 

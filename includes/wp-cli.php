@@ -197,15 +197,16 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	function import_from_csv( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
 		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
+		$csv = trim( \WP_CLI\Utils\get_flag_value( $assoc_args, 'csv' ) );
 		$notices = array();
 
-		if ( empty( $assoc_args['csv'] ) || ! file_exists( $assoc_args['csv'] ) ) {
+		if ( empty( $csv ) || ! file_exists( $csv ) ) {
 			WP_CLI::error( "Invalid 'csv' file" );
 		}
 
 		global $wpdb;
 		$row = 0;
-		if ( ( $handle = fopen( $assoc_args['csv'], "r" ) ) !== FALSE ) {
+		if ( ( $handle = fopen( $csv, "r" ) ) !== FALSE ) {
 			while ( ( $data = fgetcsv( $handle, 2000, "," ) ) !== FALSE ) {
 				$row++;
 				$redirect_from = $data[ 0 ];

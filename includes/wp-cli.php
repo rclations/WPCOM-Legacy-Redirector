@@ -106,10 +106,12 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 *   - csv
 	 * ---
 	 *
-	 * [--skip_dupes=<skip-dupes>]
+	 * [--dry_run]
+	 *
+	 * [--verbose]
  	 *
  	 * @subcommand import-from-meta
-	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--format=<format>] [--dry_run]
+	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--format=<format>] [--dry_run] [--verbose]
  	 */
 	function import_from_meta( $args, $assoc_args ) {
 		define( 'WP_IMPORTING', true );
@@ -121,6 +123,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$skip_dupes = isset( $assoc_args['skip_dupes'] ) ? (bool)intval( $assoc_args['skip_dupes'] ) : false;
 		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 		$dry_run = isset( $assoc_args['dry_run'] ) ? true : false;
+		$verbose = isset( $assoc_args['verbose'] ) ? true : false;
 		$notices = array();
 
 		if ( true === $dry_run ) {
@@ -135,10 +138,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			$total = count( $redirects );
 			WP_CLI::line( "Found $total entries" );
 
+			$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects (starting at offset %d)', $total, $offset ), (int) $total );
+
 			foreach ( $redirects as $redirect ) {
 				$i++;
-				WP_CLI::line( "Adding redirect for {$redirect->post_id} from {$redirect->meta_value}" );
-				WP_CLI::line( "-- $i of $total (starting at offset $offset)" );
+				$progress->tick();
 
 				if ( true === $skip_dupes && 0 !== WPCOM_Legacy_Redirector::get_redirect_post_id( parse_url( $redirect->meta_value, PHP_URL_PATH ) ) ) {
 					WP_CLI::line( "Redirect for {$redirect->post_id} from {$redirect->meta_value} already exists. Skipping" );
@@ -154,6 +158,12 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 							'redirect_to'   => $redirect_to,
 							'message'       => $failure_message,
 						);
+					} elseif ( $verbose ) {
+						$notices[] = array(
+							'redirect_from' => $redirect_from,
+							'redirect_to'   => $redirect_to,
+							'message'       => 'Successfully imported',
+						);
 					}
 				}
 
@@ -163,6 +173,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					sleep( 1 );
 				}
 			}
+			$progress->finish();
 			$offset += 1000;
 		} while( $redirects && $offset < $end_offset );
 

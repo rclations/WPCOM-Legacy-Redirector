@@ -154,14 +154,14 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					if ( ! $inserted || is_wp_error( $inserted ) ) {
 						$failure_message = is_wp_error( $inserted ) ? implode( "\n", $inserted->get_error_messages() ) : 'Could not insert redirect';
 						$notices[] = array(
-							'redirect_from' => $redirect_from,
-							'redirect_to'   => $redirect_to,
+							'redirect_from' => $redirect->meta_value,
+							'redirect_to'   => $redirect->post_id,
 							'message'       => $failure_message,
 						);
 					} elseif ( $verbose ) {
 						$notices[] = array(
-							'redirect_from' => $redirect_from,
-							'redirect_to'   => $redirect_to,
+							'redirect_from' => $redirect->meta_value,
+							'redirect_to'   => $redirect->post_id,
 							'message'       => 'Successfully imported',
 						);
 					}

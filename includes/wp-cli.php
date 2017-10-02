@@ -149,14 +149,19 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			$redirects = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM $wpdb->postmeta WHERE meta_key = %s ORDER BY post_id ASC LIMIT %d, 1000", $meta_key, $offset ) );
 			$i = 0;
 			$total = count( $redirects );
-			WP_CLI::line( "Found $total entries" );
 
 			foreach ( $redirects as $redirect ) {
 				$i++;
 				$progress->tick();
 
 				if ( true === $skip_dupes && 0 !== WPCOM_Legacy_Redirector::get_redirect_post_id( parse_url( $redirect->meta_value, PHP_URL_PATH ) ) ) {
-					WP_CLI::line( "Redirect for {$redirect->post_id} from {$redirect->meta_value} already exists. Skipping" );
+					if ( $verbose ) {
+						$notices[] = array(
+							'redirect_from' => $redirect->meta_value,
+							'redirect_to'   => $redirect->post_id,
+							'message'       => sprintf( 'Skipped - Redirect for this from URL already exists.', $redirect->meta_value ),
+						);
+					}
 					continue;
 				}
 

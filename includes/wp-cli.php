@@ -132,13 +132,20 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			WP_CLI::line( "---Live Run--" );
 		}
 
+		$total_redirects = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT( post_id ) FROM $wpdb->postmeta WHERE meta_key = %s",
+				$meta_key
+			)
+		);
+
+		$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects', $total_redirects ), $total_redirects );
+
 		do {
 			$redirects = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM $wpdb->postmeta WHERE meta_key = %s ORDER BY post_id ASC LIMIT %d, 1000", $meta_key, $offset ) );
 			$i = 0;
 			$total = count( $redirects );
 			WP_CLI::line( "Found $total entries" );
-
-			$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects (starting at offset %d)', $total, $offset ), (int) $total );
 
 			foreach ( $redirects as $redirect ) {
 				$i++;
@@ -173,9 +180,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					sleep( 1 );
 				}
 			}
-			$progress->finish();
 			$offset += 1000;
 		} while( $total > 1000 && $offset < $end_offset );
+
+		$progress->finish();
 
 		if ( count( $notices ) > 0 ) {
 			WP_CLI\Utils\format_items( $format, $notices, array( 'redirect_from', 'redirect_to', 'message' ) );

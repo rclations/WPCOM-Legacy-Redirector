@@ -109,6 +109,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 * [--dry_run]
 	 *
 	 * [--verbose]
+	 * : Display notices for sucessful imports and duplicates (if skip_dupes is used)
  	 *
  	 * @subcommand import-from-meta
 	 * @synopsis --meta_key=<name-of-meta-key> [--start=<start-offset>] [--end=<end-offset>] [--skip_dupes=<skip-dupes>] [--format=<format>] [--dry_run] [--verbose]

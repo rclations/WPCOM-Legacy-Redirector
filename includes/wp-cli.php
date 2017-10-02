@@ -139,6 +139,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			)
 		);
 
+		if ( 0 === absint( $total_redirects ) ) {
+			WP_CLI::error( "No redirects found for that meta_key." );
+		}
+
 		$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects', $total_redirects ), $total_redirects );
 
 		do {

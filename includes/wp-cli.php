@@ -175,7 +175,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			}
 			$progress->finish();
 			$offset += 1000;
-		} while( $redirects && $offset < $end_offset );
+		} while( $total > 1000 && $offset < $end_offset );
 
 		if ( count( $notices ) > 0 ) {
 			WP_CLI\Utils\format_items( $format, $notices, array( 'redirect_from', 'redirect_to', 'message' ) );

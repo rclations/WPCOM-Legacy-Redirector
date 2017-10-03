@@ -4,11 +4,12 @@
  * Plugin URI: https://vip.wordpress.com/plugins/wpcom-legacy-redirector/
  * Description: Simple plugin for handling legacy redirects in a scalable manner.
  * Version: 1.2.0
+ * Requires PHP: 5.6
  * Author: Automattic / WordPress.com VIP
  * Author URI: https://vip.wordpress.com
  *
  * This is a no-frills plugin (no UI, for example). Data entry needs to be bulk-loaded via the wp-cli commands provided or custom scripts.
- * 
+ *
  * Redirects are stored as a custom post type and use the following fields:
  *
  * - post_name for the md5 hash of the "from" path or URL.
@@ -34,7 +35,7 @@ class WPCOM_Legacy_Redirector {
 		add_action( 'init', array( __CLASS__, 'init' ) );
 		add_filter( 'template_redirect', array( __CLASS__, 'maybe_do_redirect' ), 0 ); // hook in early, before the canonical redirect
 	}
-	
+
 	static function init() {
 		register_post_type( self::POST_TYPE, array(
 			'public' => false,
@@ -111,7 +112,7 @@ class WPCOM_Legacy_Redirector {
 	}
 
 	static function get_redirect_uri( $url ) {
-		
+
 		$url = self::normalise_url( $url );
 		if ( is_wp_error( $url ) ) {
 			return false;

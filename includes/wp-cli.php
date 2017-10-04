@@ -204,12 +204,15 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 * [--verbose]
 	 * : Print notifications to the console for passing URLs.
 	 *
+	 * [--strict]
+	 * : Enable verification for validated redirects to post ids.
+	 *
 	 * ## EXAMPLES
 	 *
 	 * wp wpcom-legacy-redirector verify-redirects
 	 *
 	 * @subcommand verify-redirects
-	 * @synopsis [--status=<status>] [--format=<format>] [--verbose]
+	 * @synopsis [--status=<status>] [--format=<format>] [--verbose] [--strict]
 	 */
 	function verify_redirects( $args, $assoc_args ) {
 
@@ -355,6 +358,14 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						);
 						if ( 'draft' !== $redirect->poststatus ) {
 							$update_redirect_status['draft'][] = $redirect->ID;
+						}
+						continue;
+					}
+
+					// Don't verify urls to validated post ids unless the [--strict] flag is explicitly set.
+					if ( ! $assoc_args['strict'] ) {
+						if ( 'publish' !== $redirect->poststatus ) {
+							$update_redirect_status['publish'][] = $redirect->ID;
 						}
 						continue;
 					}

@@ -176,6 +176,36 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	}
 
 	/**
+	 * Verify a redirect using curl.
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp wpcom-legacy-redirector verify-redirects
+	 *
+	 * @subcommand verify-redirect-curl
+	 * @synopsis --url=<url>
+	 */
+	function verify_redirect_curl( $args, $assoc_args ) {
+		if ( ! function_exists('curl_version') ) {
+			return 'false';
+		}
+
+		$url = \WP_CLI\Utils\get_flag_value( $assoc_args, 'url' );
+
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $url); //set url
+		curl_setopt($ch, CURLOPT_HEADER, true); //get header
+		curl_setopt($ch, CURLOPT_NOBODY, true); //do not include response body
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); //do not show in browser the response
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); //follow any redirects
+		curl_exec($ch);
+		$new_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL); //extract the url from the header response
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+	}
+
+
+	/**
 	 * Verify our redirects.
 	 *
 	 * ## OPTIONS
@@ -213,6 +243,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 */
 	function verify_redirects( $args, $assoc_args ) {
 
+		if ( ! function_exists('curl_version') ) {
+			WP_CLI::error( "Curl is not installed. Please install before using the verify-redirects command." );
+		}
+
 		global $wpdb;
 		$post_types = get_post_types( array( 'public' => true ) );
 
@@ -229,7 +263,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 		$posts_per_page = 500;
 		$paged = 0;
-		$count = 0;
+		$total_processed_count = 0;
 		$notices = array();
 
 		if ( 'all' === $status ) {
@@ -288,74 +322,91 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				);
 			}
 
+			$redirects_to_check = array();
+
+			// Validation checks before verifying the redirect
 			foreach ( $redirects as $redirect ) {
-				$count++;
-				$progress->tick();
+				$total_processed_count++;
 
-				if ( 0 == $count % 100 ) {
-					sleep( 1 );
-				}
-
-				$from_path = $redirect->post_title;
-				$from_url = home_url( $from_path );
+				$from = array(
+					'path' => $redirect->post_title,
+					'url' => home_url( $redirect->post_title ),
+				);
+				$to = array();
 
 				if ( ! empty( $redirect->post_excerpt ) ) {
 
-					$to_url['raw'] = $redirect->post_excerpt;
-					$to_url['formatted'] = $to_url['raw'];
+					// If redirecting to a URL
 
+					$to = array(
+						'raw' => $redirect->post_excerpt,
+						'formatted' => $redirect->post_excerpt,
+					);
+
+					// Is this a valid URL, and an allowed host?
 					if ( ! wp_validate_redirect( $to_url['formatted'], false ) ) {
 						$notices[] = array(
 							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $redirect->post_excerpt,
+							'from_url'  => $from['path'],
+							'to_url'    => $to['raw'],
 							'message'   => 'failed wp_validate_redirect()',
 						);
-						if ( 'draft' !== $redirect->poststatus ) {
+						if ( 'draft' !== $redirect->post_status ) {
 							$update_redirect_status['draft'][] = $redirect->ID;
 						}
+						$progress->tick();
 						continue;
 					}
 
 				} else {
-					$to_url['raw'] = $redirect->post_parent;
 
+					// If redirecting to a post_id
+
+					$to['raw'] = $redirect->post_parent;
+
+					// Check if post_parent is not set.
 					if ( ! $redirect->parent_id > 0 ) {
 						$notices[] = array(
 							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $to_url['raw'],
+							'from_url'  => $from['path'],
+							'to_url'    => $to['raw'],
 							'message'   => 'Attempting to redirect to a nonexistent post id.',
 						);
-						if ( 'draft' !== $redirect->poststatus ) {
+						if ( 'draft' !== $redirect->post_status ) {
 							$update_redirect_status['draft'][] = $redirect->ID;
 						}
+						$progress->tick();
 						continue;
-					}
+					} elseif ( 'publish' !== $redirect->parent_status && 'attachment' !== $redirect->parent_post_type ) {
 
-					if ( 'publish' !== $redirect->parent_status && 'attachment' !== $redirect->parent_post_type ) {
+						// Check if the post we're redirecting to is published, or is an attachement.
+
 						$notices[] = array(
 							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $to_url['raw'],
+							'from_url'  => $from['path'],
+							'to_url'    => $to['raw'],
 							'message'   => 'Attempting to redirect to an unpublished post.',
 						);
-						if ( 'draft' !== $redirect->poststatus ) {
+						if ( 'draft' !== $redirect->post_status ) {
 							$update_redirect_status['draft'][] = $redirect->ID;
 						}
+						$progress->tick();
 						continue;
-					}
 
-					if ( ! in_array( $redirect->parent_post_type, $post_types ) ) {
+					} elseif ( ! in_array( $redirect->parent_post_type, $post_types ) ) {
+
+						// Check if the post we're redirecting to is in a publicly accessible post type.
+
 						$notices[] = array(
 							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $to_url['raw'],
+							'from_url'  => $from['path'],
+							'to_url'    => $to['raw'],
 							'message'   => 'Attempting to redirect to a private post type: ' . $redirect->parent_post_type,
 						);
-						if ( 'draft' !== $redirect->poststatus ) {
+						if ( 'draft' !== $redirect->post_status ) {
 							$update_redirect_status['draft'][] = $redirect->ID;
 						}
+						$progress->tick();
 						continue;
 					}
 
@@ -364,96 +415,188 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						$parent = get_post( $redirect->post_parent );
 					}
 
-					$to_url['formatted'] = get_permalink( $parent );
+					$to['formatted'] = get_permalink( $parent );
 
 				} // End if().
 
-				$from_url_head = wp_remote_head( $from_url );
-				$resulting_url = wp_remote_retrieve_header( $from_url_head, 'location' );
-				$redirect_status = wp_remote_retrieve_response_code( $from_url_head );
-				$redirect_status_message = wp_remote_retrieve_response_message( $from_url_head );
+				$redirects_to_check[ $redirect->ID ] = array(
+					'from' => $from,
+					'to' => $to,
+					'poststatus' => $redirect->post_status
+				);
+			} // End foreach().
+			$redirect = '';
 
-				if ( 3 == substr( $redirect_status, 0, 1 ) ) {
-					if ( $to_url['formatted'] === $resulting_url ) {
+			if ( count( $redirects_to_check ) > 0 ) {
+
+				$mh = curl_multi_init();
+
+				foreach( $redirects_to_check as $key => $redirect ) {
+					$ch[ $key ] = curl_init( $redirect['from']['url'] );
+
+					// max simultaneously open connections - see https://curl.haxx.se/libcurl/c/CURLMOPT_MAX_TOTAL_CONNECTIONS.html
+					curl_multi_setopt( $mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 100 );
+
+					// try HTTP/1 pipelining and HTTP/2 multiplexing - see https://curl.haxx.se/libcurl/c/CURLMOPT_PIPELINING.html
+					curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 | CURLPIPE_MULTIPLEX );
+
+					curl_setopt( $ch[ $key ], CURLOPT_URL, $redirect['from']['url'] );  // URL to work on.
+//					curl_setopt( $ch[ $key ], CURLOPT_VERBOSE, true );
+					curl_setopt( $ch[ $key ], CURLOPT_SSL_VERIFYSTATUS, false );
+					curl_setopt( $ch[ $key ], CURLOPT_HEADER, true );                   // Include the header in the body output.
+					curl_setopt( $ch[ $key ], CURLOPT_NOBODY, true );                   // Do not get the body contents.
+					curl_setopt( $ch[ $key ], CURLOPT_FOLLOWLOCATION, true );           // follow HTTP 3xx redirects
+					curl_setopt( $ch[ $key ], CURLOPT_MAXCONNECTS, 100 );
+					curl_setopt( $ch[ $key ], CURLOPT_RETURNTRANSFER, true );
+
+					curl_multi_add_handle( $mh, $ch[ $key ] );
+				}
+
+				$active = null;
+				do {
+					$mrc = curl_multi_exec( $mh, $active );
+				} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
+
+
+				$thread_count = 0;
+
+				while ( $active && $mrc == CURLM_OK ) {
+					// Wait for activity on any curl-connection
+					if ( curl_multi_select( $mh ) == -1 ) {
+						sleep( 1 );
+					}
+
+					// Continue to exec until curl is ready to give us more data
+					do {
+						$mrc = curl_multi_exec( $mh, $active );
+
+						// Monitor progress and report back to WP_CLI progressbar
+						if ( ( count( $ch ) - $active ) != $thread_count ) {
+							$thread_count++;
+							$progress->tick();
+						}
+					} while ( $mrc == CURLM_CALL_MULTI_PERFORM );
+				}
+
+				foreach ( array_keys( $ch ) as $key ) {
+					$redirect_status    = curl_getinfo( $ch[ $key ], CURLINFO_HTTP_CODE );
+					$redirect_count     = curl_getinfo( $ch[ $key ], CURLINFO_REDIRECT_COUNT );
+					$resulting_url      = curl_getinfo( $ch[ $key ], CURLINFO_EFFECTIVE_URL );
+
+					if ( 0 === $redirect_count ) {
+
+						// No redirect occurred.
+						$notices[] = array(
+							'id'        => $key,
+							'from_url'  => $redirects_to_check[ $key ]['from']['url'],
+							'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
+							'message'   => sprintf( 'Did not redirect.' ) . $resulting_url . ' vs ' . $redirects_to_check[ $key ]['to']['formatted'],
+						);
+
+						if ( 'draft' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['draft'][] = $key;
+						}
+
+					} elseif ( 1 < $redirect_count ) {
+
+						// More than 1 redirect occurred.
+						$notices[] = array(
+							'id'        => $key,
+							'from_url'  => $redirects_to_check[ $key ]['from']['url'],
+							'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
+							'message'   => sprintf( 'Redirected %s times', $redirect_count ),
+						);
+
+						if ( 'draft' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['draft'][] = $key;
+						}
+
+					} elseif ( 3 == substr( $redirect_status, 0, 1 ) ) {
+
+						// Not a 300-level status.
+						$notices[] = array(
+							'id'        => $key,
+							'from_url'  => $redirects_to_check[ $key ]['from']['path'],
+							'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
+							'message'   => $redirect_status,
+						);
+
+						if ( 'draft' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['draft'][] = $key;
+						}
+
+					} elseif ( $redirects_to_check[ $key ]['to']['formatted'] === $resulting_url ) {
+
+						// If the URL matches (verified).
 						if ( $assoc_args['verbose'] ) {
 							$notices[] = array(
-								'id'        => $redirect->ID,
-								'from_url'  => $from_path,
-								'to_url'    => $to_url['raw'],
+								'id'        => $key,
+								'from_url'  => $redirects_to_check[ $key ]['from']['path'],
+								'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
 								'message'   => 'Verified',
 							);
 						}
-						if ( 'publish' !== $redirect->post_status ) {
-							$update_redirect_status['publish'][] = $redirect->ID;
+						if ( 'publish' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['publish'][] = $key;
 						}
-						continue;
 
 					} elseif ( $resulting_url === $from_url . '/' ) {
 						$notices[] = array(
-							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $to_url['raw'],
+							'id'        => $key,
+							'from_url'  => $redirects_to_check[ $key ]['from']['path'],
+							'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
 							'message'   => 'Did not redirect to new page (only to add trailing slash).',
 						);
 
-						if ( 'draft' !== $redirect->poststatus ) {
-							$update_redirect_status['draft'][] = $redirect->ID;
+						if ( 'draft' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['draft'][] = $key;
 						}
-						continue;
 					} else {
 						$notices[] = array(
-							'id'        => $redirect->ID,
-							'from_url'  => $from_path,
-							'to_url'    => $to_url['raw'],
-							'message'   => 'Mismatch: redirected to ' . $resulting_url,
+							'id'        => $key,
+							'from_url'  => $redirects_to_check[ $key ]['from']['path'],
+							'to_url'    => $redirects_to_check[ $key ]['to']['raw'],
+							'message'   => $redirect_status . ' Mismatch: redirected to ' . $resulting_url . ', expected ' . $redirects_to_check[ $key ]['from']['url'],
 						);
+						var_dump( $redirects_to_check[ $key ], $key );
 
-						if ( 'draft' !== $redirect->poststatus ) {
-							$update_redirect_status['draft'][] = $redirect->ID;
+						if ( 'draft' !== $redirects_to_check[ $key ]['poststatus'] ) {
+							$update_redirect_status['draft'][] = $key;
 						}
-						continue;
 					}
-				} elseif ( 2 == substr( $redirect_status, 0, 1 ) ) {
-					$notices[] = array(
-						'id'        => $redirect->ID,
-						'from_url'  => $from_path,
-						'to_url'    => $to_url['raw'],
-						'message'   => 'Did not redirect - returned ' . $redirect_status,
-					);
 
-					if ( 'draft' !== $redirect->poststatus ) {
-						$update_redirect_status['draft'][] = $redirect->ID;
-					}
-					continue;
-				} else {
-					$notices[] = array(
-						'id'        => $redirect->ID,
-						'from_url'  => $from_path,
-						'to_url'    => $to_url['raw'],
-						'message'   => $redirect_status . ' ' . $redirect_status_message,
-					);
-
-					if ( 'draft' !== $redirect->poststatus ) {
-						$update_redirect_status['draft'][] = $redirect->ID;
-					}
-					continue;
-				} // End if().
-			} // End foreach().
+					curl_multi_remove_handle( $mh, $ch[ $key ] );
+				}
+				curl_multi_close( $mh );
+			}
 
 			$paged++;
 		} while ( count( $redirects ) );
 
+		$progress->finish();
+
 		// Update redirect status
 		if ( count( $update_redirect_status ) > 0 ) {
-			foreach ( $update_redirect_status as $status => $redirects_to_update ) {
+			$current_row = 0;
+			$progress2 = \WP_CLI\Utils\make_progress_bar( sprintf( 'Updating status of %d redirects.', (int) $total_redirects ) , (int) $total_redirects );
+
+			foreach ( $update_redirect_status as $redirect_status => $redirects_to_update ) {
 				foreach ( $redirects_to_update as $redirect_to_update ) {
-					$wpdb->update( $wpdb->posts, array( 'post_status' => $status ), array( 'ID' => $redirect_to_update ) );
-					clean_post_cache( $redirect_to_update );
+					$current_row++;
+					if ( 0 == $current_row % 100 ) {
+						sleep ( 1 );
+					}
+					$result = $wpdb->update( $wpdb->posts, array( 'post_status' => $redirect_status ), array( 'ID' => $redirect_to_update ) );
+					if ( false === $result ) {
+						WP_CLI::warning( sprintf( 'Could not update redirect %s to %s.', $redirect_to_update, $redirect_status ) );
+					}
+					$progress2->tick();
 				}
 			}
+			$progress2->finish();
 		}
 
-		$progress->finish();
+		exit;
 
 		if ( count( $notices ) > 0 ) {
 			WP_CLI\Utils\format_items( $format, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );

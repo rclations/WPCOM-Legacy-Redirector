@@ -235,61 +235,54 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$count = 0;
 		$notices = array();
 
-		if ( 'all' === $status ) {
-			$total_redirects = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s",
-					WPCOM_Legacy_Redirector::POST_TYPE
-				)
-			);
-		} else {
-			$total_redirects = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s AND post_status = %s",
-					WPCOM_Legacy_Redirector::POST_TYPE,
-					$status
-				)
-			);
+		// Build query dynamically
+		$total_redirects_sql_where = array(
+			'post_type = %s' => WPCOM_Legacy_Redirector::POST_TYPE,
+		);
+
+		if ( 'all' !== $status ) {
+			$total_redirects_sql_where['post_status = %s'] = $status;
 		}
+
+		$total_redirects = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . implode( ' AND ', array_keys( $total_redirects_sql_where ) ),
+				array_values( $total_redirects_sql_where )
+			)
+		);
 
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . $total_redirects . ' redirects', (int) $total_redirects );
 
 		do {
-			if ( 'all' === $status ) {
-				$redirects = $wpdb->get_results(
-					$wpdb->prepare(
-						"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
-							b.ID AS 'parent_id', b.post_status as 'parent_status', b.post_type as 'parent_post_type'
-						FROM $wpdb->posts a
-						LEFT JOIN $wpdb->posts b
-							ON a.post_parent = b.ID
-						WHERE a.post_type = %s
-						ORDER BY a.post_parent ASC
-						LIMIT %d, %d",
-						WPCOM_Legacy_Redirector::POST_TYPE,
-						( $paged * $posts_per_page ),
-						$posts_per_page
-					)
-				);
-			} else {
-				$redirects = $wpdb->get_results(
-					$wpdb->prepare(
-						"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
-							b.ID AS 'parent_id', b.post_status as 'parent_status', b.post_type as 'parent_post_type'
-						FROM $wpdb->posts a
-						LEFT JOIN $wpdb->posts b
-							ON a.post_parent = b.ID
-						WHERE a.post_type = %s
-							AND a.post_status = %s
-						ORDER BY a.post_parent ASC
-						LIMIT %d, %d",
-						WPCOM_Legacy_Redirector::POST_TYPE,
-						$status,
-						( $paged * $posts_per_page ),
-						$posts_per_page
-					)
-				);
+
+			// Build query dynamically
+			$redirects_sql = array(
+				'where' => array(
+					'a.post_type = %s' => WPCOM_Legacy_Redirector::POST_TYPE,
+				),
+				'limit' => array(
+					$paged * $posts_per_page,
+					$posts_per_page
+				)
+			);
+
+			if ( 'all' !== $status ) {
+				$redirects_sql['where']['a.post_status = %s'] = $status;
 			}
+
+			$redirects = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
+						b.ID AS 'parent_id', b.post_status as 'parent_status', b.post_type as 'parent_post_type'
+					FROM $wpdb->posts a
+					LEFT JOIN $wpdb->posts b
+						ON a.post_parent = b.ID
+					WHERE " . implode( ' AND ', array_keys( $redirects_sql['where'] ) ) . "
+					ORDER BY a.post_parent ASC
+					LIMIT %d, %d",
+					array_merge( array_values( $redirects_sql['where'] ), $redirects_sql['limit'] )
+				)
+			);
 
 			foreach ( $redirects as $redirect ) {
 				$count++;

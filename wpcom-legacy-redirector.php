@@ -178,6 +178,105 @@ class WPCOM_Legacy_Redirector {
 		return $redirect_post_id;
 	}
 
+	/**
+	 * Validate the redirect should work normally.
+	 *
+	 * @param array $redirect Redirect array.
+	 * @param array $post_types Array of publicly accessible post types.
+	 * @return bool|string True if the redirect passes validation. Array containing error notice if redirect fails validation.
+	 */
+	static function validate_redirect( $redirect, $post_types ) {
+
+		if ( 'url' === $redirect['destination_type'] ) {
+
+			if ( ! wp_validate_redirect( $redirect['to']['formatted'], false ) ) {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['formatted'],
+					'message'   => 'failed wp_validate_redirect()',
+				);
+			}
+
+		} else {
+
+			if ( ! $redirect['parent']['id'] > 0 ) {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['raw'],
+					'message'   => 'Attempting to redirect to a nonexistent post id.',
+				);
+			}
+
+			if (
+				'publish' !== $redirect['parent']['status']
+				&& 'attachment' !== $redirect['parent']['post_type']
+			) {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['raw'],
+					'message'   => 'Attempting to redirect to an unpublished post.',
+				);
+			}
+
+			if ( ! in_array( $redirect['parent']['post_type'], $post_types ) ) {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['raw'],
+					'message'   => 'Attempting to redirect to a private post type: ' . $redirect['parent']['post_type'],
+				);
+			}
+		} // End if().
+
+		return true;
+	}
+
+	/**
+	 * Verify a redirect.
+	 *
+	 * @param array $redirect Redirect array.
+	 * @return bool|string True if the redirect passes validation. Array containing error notice if redirect fails validation.
+	 */
+	static function verify_redirect( $redirect ) {
+
+		if ( 3 == substr( $redirect['redirect']['status'], 0, 1 ) ) {
+			if ( $redirect['to']['formatted'] === $redirect['redirect']['resulting_url'] ) {
+				return true;
+			} elseif ( $redirect['redirect']['resulting_url'] === $redirect['from']['url'] . '/' ) {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['raw'],
+					'message'   => 'Did not redirect to new page (only to add trailing slash).',
+				);
+			} else {
+				return array(
+					'id'        => $redirect['id'],
+					'from_url'  => $redirect['from']['path'],
+					'to_url'    => $redirect['to']['raw'],
+					'message'   => 'Mismatch: redirected to ' . $redirect['redirect']['resulting_url'],
+				);
+			}
+		} elseif ( 2 == substr( $redirect['redirect']['status'], 0, 1 ) ) {
+			return array(
+				'id'        => $redirect['id'],
+				'from_url'  => $redirect['from']['path'],
+				'to_url'    => $redirect['to']['raw'],
+				'message'   => 'Did not redirect - returned ' . $redirect['redirect']['status'],
+			);
+		} else {
+			return array(
+				'id'        => $redirect['id'],
+				'from_url'  => $redirect['from']['path'],
+				'to_url'    => $redirect['to']['raw'],
+				'message'   => $redirect['redirect']['status'] . ' ' . $redirect['redirect']['status_msg'],
+			);
+		} // End if().
+	}
+
 	private static function get_url_hash( $url ) {
 		return md5( $url );
 	}

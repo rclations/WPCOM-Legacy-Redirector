@@ -141,10 +141,10 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		);
 
 		if ( 0 === absint( $total_redirects ) ) {
-			WP_CLI::error( "No redirects found for that meta_key." );
+			WP_CLI::error( sprintf( 'No redirects found for meta_key: %s', $meta_key ) );
 		}
 
-		$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects', $total_redirects ), $total_redirects );
+		$progress = \WP_CLI\Utils\make_progress_bar( sprintf( 'Importing %s redirects', number_format( $total_redirects ) ), $total_redirects );
 
 		do {
 			$redirects = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM $wpdb->postmeta WHERE meta_key = %s ORDER BY post_id ASC LIMIT %d, 1000", $meta_key, $offset ) );
@@ -160,7 +160,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						$notices[] = array(
 							'redirect_from' => $redirect->meta_value,
 							'redirect_to'   => $redirect->post_id,
-							'message'       => sprintf( 'Skipped - Redirect for this from URL already exists.', $redirect->meta_value ),
+							'message'       => sprintf( 'Skipped - Redirect for this from URL already exists (%s)', $redirect->meta_value ),
 						);
 					}
 					continue;
@@ -169,7 +169,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				if ( false === $dry_run ) {
 					$inserted = WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect->meta_value, $redirect->post_id );
 					if ( ! $inserted || is_wp_error( $inserted ) ) {
-						$failure_message = is_wp_error( $inserted ) ? implode( "\n", $inserted->get_error_messages() ) : 'Could not insert redirect';
+						$failure_message = is_wp_error( $inserted ) ? implode( PHP_EOL, $inserted->get_error_messages() ) : 'Could not insert redirect';
 						$notices[] = array(
 							'redirect_from' => $redirect->meta_value,
 							'redirect_to'   => $redirect->post_id,
@@ -237,7 +237,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		}
 
 		if ( ! $verbose ) {
-			WP_CLI::line( "Processing..." );
+			WP_CLI::line( 'Processing...' );
 		}
 
 		global $wpdb;
@@ -256,7 +256,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 				$inserted = WPCOM_Legacy_Redirector::insert_legacy_redirect( $redirect_from, $redirect_to );
 				if ( ! $inserted || is_wp_error( $inserted ) ) {
-					$failure_message = is_wp_error( $inserted ) ? implode( "\n", $inserted->get_error_messages() ) : 'Could not insert redirect';
+					$failure_message = is_wp_error( $inserted ) ? implode( PHP_EOL, $inserted->get_error_messages() ) : 'Could not insert redirect';
 					$notices[] = array(
 						'redirect_from' => $redirect_from,
 						'redirect_to'   => $redirect_to,

@@ -217,8 +217,53 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	function verify_redirects( $args, $assoc_args ) {
 
 		global $wpdb;
-		$post_types = get_post_types( array( 'public' => true ) );
+		$posts_per_page = 500;
+		$paged = 0;
+		$offset = 0;
 
+		// Try to match redirects to relative URLs with their post ID
+		$total_relative_redirects = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT( ID ) FROM $wpdb->posts WHERE post_type = %s AND post_parent = 0", WPCOM_Legacy_Redirector::POST_TYPE ) );
+
+		if ( 0 < $total_relative_redirects ) {
+			$progress = \WP_CLI\Utils\make_progress_bar( 'Fetching post IDs for relative redirects...', (int) $total_relative_redirects );
+
+			do {
+				$relative_redirects = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT ID, post_excerpt FROM $wpdb->posts WHERE post_type = %s AND post_parent = 0 ORDER BY post_excerpt ASC LIMIT %d, %d",
+						WPCOM_Legacy_Redirector::POST_TYPE,
+						( $paged * $posts_per_page ) - $offset,
+						$posts_per_page
+					)
+				);
+
+				foreach ( $relative_redirects as $relative_redirect ) {
+
+					// If the destination url is relative, prepend the site's URL
+					$destination = '/' === substr( $relative_redirect->post_excerpt, 0, 1 ) ? home_url( $relative_redirect->post_excerpt ) : $relative_redirect->post_excerpt;
+
+					$post_id = url_to_postid( $destination );
+					if ( 0 !== $post_id ) {
+						$updated_rows = $wpdb->update( $wpdb->posts, array( 'post_parent' => $post_id ), array( 'ID' => $relative_redirect->ID ) );
+						if ( $updated_rows && $redirect_status !== $status ) {
+							$offset = $offset + $updated_rows;
+
+							// Sleep for a second every 100 updated rows
+							if ( 0 == $offset % 100 ) {
+								sleep( 1 );
+							}
+						}
+					}
+					$progress->tick();
+				}
+				$paged++;
+			} while ( count( $relative_redirects ) );
+
+			$progress->finish();
+		}
+
+
+		$post_types = get_post_types( array( 'public' => true ) );
 		$status = \WP_CLI\Utils\get_flag_value( $assoc_args, 'status' );
 		switch ( $status ) {
 			case 'unverified':
@@ -230,7 +275,6 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		}
 		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 
-		$posts_per_page = 500;
 		$paged = 0;
 		$count = 0;
 		$offset = 0;
@@ -310,7 +354,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				);
 
 				// Post Excerpt contains the destination URL (when redirecting to a URL)
-				if ( ! empty( $redirect_to_validate->post_excerpt ) ) {
+				if ( 0 === $redirect_to_validate->post_parent ) {
 					$redirect['destination_type'] = 'url';
 					$redirect['to']['raw'] = $redirect_to_validate->post_excerpt;
 					$redirect['to']['formatted'] = $redirect_to_validate->post_excerpt;
@@ -335,7 +379,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					// Don't verify urls to validated post ids unless the [--strict] flag is explicitly set.
 					if ( ! $assoc_args['strict'] ) {
 						if ( 'publish' !== $redirect['post_status'] ) {
-							$update_redirect_status['publish'][] = $redirect->ID;
+							$update_redirect_status['publish'][] = $redirect['id'];
 						}
 						continue;
 					}

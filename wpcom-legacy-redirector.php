@@ -201,7 +201,7 @@ class WPCOM_Legacy_Redirector {
 
 		} else {
 
-			if ( ! $redirect['parent']['id'] > 0 ) {
+			if ( $redirect['parent']['id'] <= 0 ) {
 				return array(
 					'id'        => $redirect['id'],
 					'from_url'  => $redirect['from']['path'],
@@ -230,7 +230,7 @@ class WPCOM_Legacy_Redirector {
 					'message'   => 'Attempting to redirect to a private post type: ' . $redirect['parent']['post_type'],
 				);
 			}
-		} // End if().
+		}
 
 		return true;
 	}
@@ -275,7 +275,7 @@ class WPCOM_Legacy_Redirector {
 				'to_url'    => $redirect['to']['raw'],
 				'message'   => $redirect['redirect']['status'] . ' ' . $redirect['redirect']['status_msg'],
 			);
-		} // End if().
+		}
 	}
 
 	private static function get_url_hash( $url ) {

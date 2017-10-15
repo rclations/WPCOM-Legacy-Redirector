@@ -245,7 +245,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 
 		$total_redirects = $wpdb->get_var( "SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . $total_redirects_where );
 
-		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . $total_redirects . ' redirects', (int) $total_redirects );
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . number_format( $total_redirects ) . ' redirects', (int) $total_redirects );
 
 		do {
 
@@ -339,7 +339,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 						'id'        => $redirect['id'],
 						'from_url'  => $redirect['from']['path'],
 						'to_url'    => $redirect['to']['raw'],
-						'message'   => implode( "\n", $redirect_head->get_error_messages() ),
+						'message'   => implode( PHP_EOL, $redirect_head->get_error_messages() ),
 					);
 					continue;
 				}
@@ -369,7 +369,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					}
 					continue;
 				}
-			} // End foreach().
+			}
 
 			// Update redirect status
 			if ( count( $update_redirect_status ) > 0 ) {

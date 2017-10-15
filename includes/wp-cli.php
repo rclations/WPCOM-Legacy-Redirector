@@ -376,8 +376,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				foreach ( $update_redirect_status as $redirect_status => $redirects_to_update ) {
 					foreach ( $redirects_to_update as $redirect_to_update ) {
 						$updated_rows = $wpdb->update( $wpdb->posts, array( 'post_status' => $redirect_status ), array( 'ID' => $redirect_to_update ) );
-						if ( $updated_rows && $redirect_status !== $status ) {
-							$offset = $offset + $updated_rows;
+						if ( $updated_rows ) {
+							clean_post_cache( $updated_rows );
+							if ( $redirect_status !== $status ) {
+								$offset = $offset + $updated_rows;
+							}
 						}
 					}
 				}

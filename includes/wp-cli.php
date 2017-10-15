@@ -237,53 +237,37 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$notices = array();
 		$update_redirect_status[] = array();
 
-		// Build query dynamically
-		$total_redirects_sql_where = array(
-			'post_type = %s' => WPCOM_Legacy_Redirector::POST_TYPE,
-		);
-
-		if ( 'all' !== $status ) {
-			$total_redirects_sql_where['post_status = %s'] = $status;
+		if ( 'all' === $status ) {
+			$total_redirects_where = "post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "'";
+		} else {
+			$total_redirects_where = "post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "' AND post_status = '" . $status . "'";
 		}
 
-		$total_redirects = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . implode( ' AND ', array_keys( $total_redirects_sql_where ) ),
-				array_values( $total_redirects_sql_where )
-			)
-		);
+		$total_redirects = $wpdb->get_var( "SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . $total_redirects_where );
 
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . $total_redirects . ' redirects', (int) $total_redirects );
 
 		do {
 
-			// Build query dynamically
-			$redirects_sql = array(
-				'where' => array(
-					'a.post_type = %s' => WPCOM_Legacy_Redirector::POST_TYPE,
-				),
-				'limit' => array(
-					( $paged * $posts_per_page ) - $offset,
-					$posts_per_page
-				)
+			$redirects_query = array(
+				'where' => "a.post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "'",
+				'order' => "a.post_parent ASC",
+				'limit' => ( $paged * $posts_per_page ) - $offset . ', ' . $posts_per_page,
 			);
 
 			if ( 'all' !== $status ) {
-				$redirects_sql['where']['a.post_status = %s'] = $status;
+				$redirects_query['where'] .= " AND a.post_status = '" . $status . "'";
 			}
 
 			$redirects_to_validate = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
+				"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
 						b.ID AS 'parent_id', b.post_status as 'parent_status', b.post_type as 'parent_post_type'
 					FROM $wpdb->posts a
 					LEFT JOIN $wpdb->posts b
 						ON a.post_parent = b.ID
-					WHERE " . implode( ' AND ', array_keys( $redirects_sql['where'] ) ) . "
-					ORDER BY a.post_parent ASC
-					LIMIT %d, %d",
-					array_merge( array_values( $redirects_sql['where'] ), $redirects_sql['limit'] )
-				)
+					WHERE " . $redirects_query['where'] . "
+					ORDER BY " . $redirects_query['order'] . "
+					LIMIT " . $redirects_query['limit']
 			);
 
 			foreach ( $redirects_to_validate as $redirect_to_validate ) {

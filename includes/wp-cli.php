@@ -199,6 +199,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 *   - json
 	 *   - yaml
 	 *   - csv
+	 *   - file
 	 * ---
 	 *
 	 * [--verbose]
@@ -314,7 +315,13 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		$progress->finish();
 
 		if ( count( $notices ) > 0 ) {
-			WP_CLI\Utils\format_items( $format, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
+			if ( 'file' === $format ) {
+				$fp = fopen( 'wpcom-legacy-redirector_verify-redirects_' . time() . '.csv', 'w');
+				WP_CLI\Utils\write_csv( $fp, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
+				fclose($fp);
+			} else {
+				WP_CLI\Utils\format_items( $format, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
+			}
 		} else {
 			echo WP_CLI::colorize( "%GAll of your redirects have been verified. Nice work!%n " );
 		}

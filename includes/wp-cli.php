@@ -204,18 +204,14 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 * [--verbose]
 	 * : Print notifications to the console for passing URLs.
 	 *
-	 * [--strict]
-	 * : Enable verification for validated redirects to post ids.
-	 *
 	 * ## EXAMPLES
 	 *
 	 * wp wpcom-legacy-redirector verify-redirects
 	 *
 	 * @subcommand verify-redirects
-	 * @synopsis [--status=<status>] [--format=<format>] [--verbose] [--strict]
+	 * @synopsis [--status=<status>] [--format=<format>] [--verbose]
 	 */
 	function verify_redirects( $args, $assoc_args ) {
-
 		global $wpdb;
 		$post_types = get_post_types( array( 'public' => true ) );
 
@@ -230,9 +226,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		}
 		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 
-		$posts_per_page = 500;
+		$query_count = 0;
+		$posts_per_page = 100;
 		$paged = 0;
-		$count = 0;
 		$offset = 0;
 		$notices = array();
 		$update_redirect_status[] = array();
@@ -242,12 +238,15 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 		} else {
 			$total_redirects_where = "post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "' AND post_status = '" . $status . "'";
 		}
-
 		$total_redirects = $wpdb->get_var( "SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . $total_redirects_where );
+		$query_count = WPCOM_Legacy_Redirector::update_query_count( $query_count );
 
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . number_format( $total_redirects ) . ' redirects', (int) $total_redirects );
+		$progress->tick();
 
 		do {
+
+			$validated_redirects = array();
 
 			$redirects_query = array(
 				'where' => "a.post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "'",
@@ -259,7 +258,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				$redirects_query['where'] .= " AND a.post_status = '" . $status . "'";
 			}
 
-			$redirects_to_validate = $wpdb->get_results(
+			$redirects_to_verify = $wpdb->get_results(
 				"SELECT a.ID, a.post_title, a.post_excerpt, a.post_parent, a.post_status,
 						b.ID AS 'parent_id', b.post_status as 'parent_status', b.post_type as 'parent_post_type'
 					FROM $wpdb->posts a
@@ -269,22 +268,21 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					ORDER BY " . $redirects_query['order'] . "
 					LIMIT " . $redirects_query['limit']
 			);
+			$query_count = WPCOM_Legacy_Redirector::update_query_count( $query_count );
 
-			foreach ( $redirects_to_validate as $redirect_to_validate ) {
-				$count++;
-				$progress->tick();
-
-				if ( 0 == $count % 100 ) {
-					sleep( 1 );
-				}
+			// Validate redirects
+			foreach ( $redirects_to_verify as $redirect_to_validate ) {
 
 				$redirect = array(
 					'id' => $redirect_to_validate->ID,
 					'from' => array(
-						'path' => $redirect_to_validate->post_title,
-						'url' => home_url( $redirect_to_validate->post_title ),
+						'raw' => $redirect_to_validate->post_title,
+						'formatted' => $redirect_to_validate->post_title,
 					),
-					'to' => array(),
+					'to' => array(
+						'raw' => '',
+						'formatted' => '',
+					),
 					'post_status' => $redirect_to_validate->post_status,
 					'parent' => array(
 						'id' => $redirect_to_validate->parent_id,
@@ -293,36 +291,48 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					),
 				);
 
-				// Post Excerpt contains the destination URL (when redirecting to a URL)
+				// Format relative from urls
+				if ( '/' == substr( $redirect['from']['raw'], 0, 1 ) ) {
+					$redirect['from']['formatted'] = home_url( $redirect['from']['raw'] );
+				}
+
+				// Format and validate, based on redirect destination type.
 				if ( ! empty( $redirect_to_validate->post_excerpt ) ) {
 					$redirect['destination_type'] = 'url';
 					$redirect['to']['raw'] = $redirect_to_validate->post_excerpt;
-					$redirect['to']['formatted'] = $redirect_to_validate->post_excerpt;
+
+					// Format relative URLs
+					if ( '/' == substr( $redirect['to']['raw'], 0, 1 ) ) {
+						$redirect['to']['formatted'] = home_url( $redirect['to']['raw'] );
+					}
+
+					$validation = WPCOM_Legacy_Redirector::validate_url_redirect( $redirect, $post_types );
+
 				} else {
-					$redirect['to']['raw'] = $redirect_to_validate->post_parent;
 					$redirect['destination_type'] = 'post';
+					$redirect['to']['raw'] = $redirect_to_validate->post_parent;
+
+					// Set here for error handling. Update value post-validation, since it requires an expensive get_permalink() call.
+					$redirect['to']['formatted'] = $redirect['to']['raw'];
+
+					$validation = WPCOM_Legacy_Redirector::validate_post_redirect( $redirect, $post_types );
 				}
 
-				// Validate the redirect.
-				$validate = WPCOM_Legacy_Redirector::validate_redirect( $redirect, $post_types );
-
-				if ( true !== $validate ) {
-					$notices[] = $validate;
+				if ( is_wp_error( $validation ) ) {
+					$notices[] = array(
+						'id'        => $redirect['id'],
+						'from_url'  => $redirect['from']['raw'],
+						'to_url'    => $redirect['to']['formatted'],
+						'message'   => $validation->get_error_message(),
+					);
 					if ( 'draft' !== $redirect['post_status'] ) {
 						$update_redirect_status['draft'][] = $redirect['id'];
 					}
 					continue;
 				}
 
+				// Update $redirect['to']['formatted'] for redirects to post ids.
 				if ( 'post' === $redirect['destination_type'] ) {
-
-					// Don't verify urls to validated post ids unless the [--strict] flag is explicitly set.
-					if ( ! $assoc_args['strict'] ) {
-						if ( 'publish' !== $redirect['post_status'] ) {
-							$update_redirect_status['publish'][] = $redirect->ID;
-						}
-						continue;
-					}
 
 					// Reuse parent post object in case of multiple redirects to same post ID.
 					if ( ! isset( $parent->ID ) || intval( $redirect['parent']['id'] ) !== $parent->ID ) {
@@ -330,26 +340,38 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					}
 
 					$redirect['to']['formatted'] = get_permalink( $parent );
+					$query_count = WPCOM_Legacy_Redirector::update_query_count( $query_count );
 				}
 
-				// Ping the URL and get the headers
-				$redirect_head = wp_remote_head( $redirect['from']['url'] );
-				if ( is_wp_error( $redirect_head ) ) {
-					$notices[] = array(
-						'id'        => $redirect['id'],
-						'from_url'  => $redirect['from']['path'],
-						'to_url'    => $redirect['to']['raw'],
-						'message'   => implode( PHP_EOL, $redirect_head->get_error_messages() ),
-					);
-					continue;
-				}
-				$redirect['redirect']['resulting_url'] = wp_remote_retrieve_header( $redirect_head, 'location' );
-				$redirect['redirect']['status'] = wp_remote_retrieve_response_code( $redirect_head );
-				$redirect['redirect']['status_msg'] = wp_remote_retrieve_response_message( $redirect_head );
+				$redirects[ $redirect['id'] ] = array(
+					'id' => $redirect['id'],
+					'from' => $redirect['from'],
+					'to' => $redirect['to'],
+					'poststatus' => $redirect['post_status']
+				);
+			}
+
+			// Clear unneeded variable.
+			$redirects_to_verify = '';
+
+			$redirects = WPCOM_Legacy_Redirector::try_redirects( $redirects, $progress );
+
+			foreach( $redirects as $key => $redirect ) {
 
 				$verify = WPCOM_Legacy_Redirector::verify_redirect( $redirect );
 
-				if ( true === $verify ) {
+				if ( is_wp_error( $verify ) ) {
+					$notices[] = array(
+						'id'        => $redirect['id'],
+						'from_url'  => $redirect['from']['raw'],
+						'to_url'    => $redirect['to']['formatted'],
+						'message'   => $verify->get_error_message(),
+					);
+					if ( 'draft' !== $redirect['post_status'] ) {
+						$update_redirect_status['draft'][] = $redirect['id'];
+					}
+					continue;
+				} else {
 					if ( $assoc_args['verbose'] ) {
 						$notices[] = array(
 							'id'        => $redirect['id'],
@@ -362,12 +384,6 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					if ( 'publish' !== $redirect['post_status'] ) {
 						$update_redirect_status['publish'][] = $redirect['id'];
 					}
-				} else {
-					$notices[] = $verify;
-					if ( 'draft' !== $redirect['post_status'] ) {
-						$update_redirect_status['draft'][] = $redirect['id'];
-					}
-					continue;
 				}
 			}
 
@@ -376,8 +392,11 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				foreach ( $update_redirect_status as $redirect_status => $redirects_to_update ) {
 					foreach ( $redirects_to_update as $redirect_to_update ) {
 						$updated_rows = $wpdb->update( $wpdb->posts, array( 'post_status' => $redirect_status ), array( 'ID' => $redirect_to_update ) );
+						$query_count = WPCOM_Legacy_Redirector::update_query_count( $query_count );
+
 						if ( $updated_rows ) {
 							clean_post_cache( $updated_rows );
+
 							if ( $redirect_status !== $status ) {
 								$offset = $offset + $updated_rows;
 							}
@@ -388,7 +407,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			}
 
 			$paged++;
-		} while ( count( $redirects_to_validate ) );
+		} while ( count( $redirects_to_verify ) );
 
 		$progress->finish();
 

@@ -117,5 +117,23 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 		$this->assertEquals( $redirect, $protected_to, 'get_redirect_uri failed' );
 	}
 
-}
+	function test_validate_url_redirect() {
+		// try redirecting to bad host
+		// try adding a host and then redirecting to it
+	}
 
+	function test_validate_post_redirect() {
+		// Redirect to an attachment type (status = inherit) (success)
+		// Redirect to a published parent (fail)
+		// Redirect to private post type (fail)
+	}
+
+	function test_verify_redirect() {
+		// pass correct redirect (pass)
+
+		// Fails:
+		// pass redirect that adds trailing slash
+		// pass redirect with non 200 status
+		// pass mismatching redirect
+	}
+}

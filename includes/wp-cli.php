@@ -205,14 +205,18 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	 * [--verbose]
 	 * : Print notifications to the console for passing URLs.
 	 *
+	 * [--force_ssl]
+	 * : Forces verification over SSL to utilize HTTP/2 multiplexing.
+	 *
 	 * ## EXAMPLES
 	 *
 	 * wp wpcom-legacy-redirector verify-redirects
 	 *
 	 * @subcommand verify-redirects
-	 * @synopsis [--status=<status>] [--format=<format>] [--verbose]
+	 * @synopsis [--status=<status>] [--format=<format>] [--verbose] [--force_ssl]
 	 */
 	function verify_redirects( $args, $assoc_args ) {
+
 		global $wpdb;
 		$post_types = get_post_types( array( 'public' => true ) );
 
@@ -276,7 +280,7 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			}
 
 			// Validate and format redirects for verification.
-			$validated_redirects    = WPCOM_Legacy_Redirector::validate_redirects( $redirects_to_verify, $notices, $update_redirect_status, $query_count, $progress );
+			$validated_redirects    = WPCOM_Legacy_Redirector::validate_redirects( $redirects_to_verify, $notices, $update_redirect_status, $query_count, $progress, $assoc_args['force_ssl'] );
 
 			if ( is_wp_error( $validated_redirects ) ) {
 				WP_CLI::error( $validated_redirects->get_error_message() );

@@ -206,9 +206,10 @@ class WPCOM_Legacy_Redirector {
 	 * @param array $update_redirect_status Array of redirects that need an updated status.
 	 * @param int $query_count Number of queries run in this operation.
 	 * @param obj $progress WP-CLI progress bar.
+	 * @param bool $force_ssl Whether to format URLs using SSL.
 	 * @return array|WP_Error Array of validated redirects, notices of failed redirects, and redirects to update the status on - or WP_Error on failure.
 	 */
-	static function validate_redirects( $redirects, $notices, $update_redirect_status, $query_count, $progress ) {
+	static function validate_redirects( $redirects, $notices, $update_redirect_status, $query_count, $progress, $force_ssl = false ) {
 
 		if ( ! is_array( $redirects ) ) {
 			return new WP_Error( 'no-redirects', 'No redirects to validate.' );
@@ -238,7 +239,11 @@ class WPCOM_Legacy_Redirector {
 
 			// Format relative from urls
 			if ( '/' == substr( $redirect['from']['raw'], 0, 1 ) ) {
-				$redirect['from']['formatted'] = home_url( $redirect['from']['raw'] );
+				if ( $force_ssl ) {
+					$redirect['from']['formatted'] = home_url( $redirect['from']['raw'], 'https' );
+				} else {
+					$redirect['from']['formatted'] = home_url( $redirect['from']['raw'] );
+				}
 			}
 
 			// Format and validate, based on redirect destination type.
@@ -248,7 +253,11 @@ class WPCOM_Legacy_Redirector {
 
 				// Format relative to URLs
 				if ( '/' == substr( $redirect['to']['raw'], 0, 1 ) ) {
-					$redirect['to']['formatted'] = home_url( $redirect['to']['raw'] );
+					if ( $force_ssl ) {
+						$redirect['to']['formatted'] = home_url( $redirect['to']['raw'], 'https' );
+					} else {
+						$redirect['to']['formatted'] = home_url( $redirect['to']['raw'] );
+					}
 				}
 
 				$validation = self::validate_url_redirect( $redirect, $post_types );

@@ -367,7 +367,17 @@ class WPCOM_Legacy_Redirector {
 	 * @return array|WP_Error Array of notices for failed redirects and redirects to update the status on - or WP_Error on failure.
 	 */
 	static function verify_redirects(  $redirects_to_verify, $notices, $update_redirect_status, $progress, $verbose = false ) {
-		$redirects = self::try_redirects( $redirects_to_verify, $progress );
+		if ( version_compare( PHP_VERSION, '7.0.7' ) >= 0 ) {
+			$redirects = self::try_redirects( $redirects_to_verify, $progress );
+		} else {
+			// If PHP < 7.0.7, we need to manually limit the # of connections.
+			$redirects = array();
+			$redirects_to_verify = array_chunk( $redirects_to_verify, 10 );
+			foreach ( $redirects_to_verify as $redirects_chunk ) {
+				$redirects[] = self::try_redirects( $redirects_to_verify, $progress );
+				sleep( 1 );
+			}
+		}
 
 		foreach ( $redirects as $key => $redirect ) {
 

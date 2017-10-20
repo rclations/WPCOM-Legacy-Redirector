@@ -475,7 +475,7 @@ class WPCOM_Legacy_Redirector {
 
 		foreach ( array_keys( $ch ) as $key ) {
 			$redirects[ $key ]['redirect']['status']           = curl_getinfo( $ch[ $key ], CURLINFO_HTTP_CODE );
-			$redirects[ $key ]['redirect']['count']            = curl_getinfo( $ch[ $key ], CURLINFO_REDIRECT_COUNT ); // @TODO not currently using this.
+			$redirects[ $key ]['redirect']['count']            = curl_getinfo( $ch[ $key ], CURLINFO_REDIRECT_COUNT );
 			$redirects[ $key ]['redirect']['resulting_url']    = curl_getinfo( $ch[ $key ], CURLINFO_EFFECTIVE_URL );
 			curl_multi_remove_handle( $mh, $ch[ $key ] );
 		}
@@ -517,10 +517,13 @@ class WPCOM_Legacy_Redirector {
 			return new WP_Error( 'missing-trailing-slash', 'Warning: Redirect works, but missing trailing slash.' );
 
 		} elseif ( 200 !== $redirect['redirect']['status'] ) {
-			return new WP_Error( 'http-error-code', 'Returned' . $redirect['redirect']['status'] );
+			return new WP_Error( 'http-error-code', sprintf( 'Returned %s', $redirect['redirect']['status'] ) );
+
+		} elseif ( 1 < $redirect['redirect']['count'] ) {
+			return new WP_Error( 'http-error-code', sprintf( 'Mismatch: Redirected %d times, ending at %s', number_format( $redirect['redirect']['count'] ), $redirect['redirect']['resulting_url'] ) );
 
 		} else {
-			return new WP_Error( 'redirect-mismatch', 'Mismatch: redirected to ' . $redirect['redirect']['resulting_url'] );
+			return new WP_Error( 'redirect-mismatch', sprintf( 'Mismatch: redirected to %s', $redirect['redirect']['resulting_url'] ) );
 		}
 	}
 
@@ -567,7 +570,7 @@ class WPCOM_Legacy_Redirector {
 			$update_status[ $status ][] = $formatted_redirect['id'];
 		}
 
-		return $redirects;
+		return $update_status;
 	}
 
 

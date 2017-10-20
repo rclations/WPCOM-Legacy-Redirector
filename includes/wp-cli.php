@@ -225,9 +225,9 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 			'update_status' => array(),
 			'query_count'   => array(),
 			'query_count'   => 0,
-			'offset'        => '',
+			'offset'        => 0,
 		);
-		$posts_per_page = 100;
+		$posts_per_page = 500;
 		$paged = 0;
 
 		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );

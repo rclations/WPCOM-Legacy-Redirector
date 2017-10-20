@@ -315,7 +315,7 @@ class WPCOM_Legacy_Redirector {
 	 * @param array $post_types Array of publicly accessible post types.
 	 * @return bool|WP_Error True on success, false or WP_Error on failure.
 	 */
-	private static function validate_url_redirect( $redirect, $post_types ) {
+	static function validate_url_redirect( $redirect, $post_types ) {
 
 		// Validate non-relative URLs.
 		if (
@@ -336,7 +336,7 @@ class WPCOM_Legacy_Redirector {
 	 *
 	 * @return bool|WP_Error True on success, false or WP_Error on failure.
 	 */
-	private static function validate_post_redirect( $redirect, $post_types ) {
+	static function validate_post_redirect( $redirect, $post_types ) {
 
 		if ( $redirect['parent']['id'] <= 0 ) {
 			return new WP_Error( 'no-parent-post', 'Attempting to redirect to a nonexistent post id.' );
@@ -497,7 +497,7 @@ class WPCOM_Legacy_Redirector {
 	 * @param array $redirect Array of redirects.
 	 * @return bool|WP_Error True if the redirect works as expected, otherwise WP_Error.
 	 */
-	private static function verify_redirect_status( $redirect ) {
+	static function verify_redirect_status( $redirect ) {
 
 		if (
 			! isset( $redirect['to']['formatted'] )

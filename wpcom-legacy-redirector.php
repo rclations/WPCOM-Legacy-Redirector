@@ -249,6 +249,7 @@ class WPCOM_Legacy_Redirector {
 			if ( ! empty( $redirect->post_excerpt ) ) {
 				$formatted_redirect['destination_type'] = 'url';
 				$formatted_redirect['to']['raw'] = $redirect->post_excerpt;
+				$formatted_redirect['to']['formatted'] = $redirect->post_excerpt;
 
 				// Format relative to URLs
 				if ( '/' == substr( $formatted_redirect['to']['raw'], 0, 1 ) ) {

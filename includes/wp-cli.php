@@ -218,8 +218,19 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 	function verify_redirects( $args, $assoc_args ) {
 
 		global $wpdb;
-		$post_types = get_post_types( array( 'public' => true ) );
 
+		$redirects = array(
+			'redirects'     => array(),
+			'notices'       => array(),
+			'update_status' => array(),
+			'query_count'   => array(),
+			'query_count'   => 0,
+			'offset'        => '',
+		);
+		$posts_per_page = 100;
+		$paged = 0;
+
+		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 		$status = \WP_CLI\Utils\get_flag_value( $assoc_args, 'status' );
 		switch ( $status ) {
 			case 'unverified':
@@ -229,25 +240,17 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 				$status = 'publish';
 				break;
 		}
-		$format = \WP_CLI\Utils\get_flag_value( $assoc_args, 'format' );
 
-		$query_count = 0;
-		$posts_per_page = 100;
-		$paged = 0;
-		$offset = 0;
-
-		$notices = array();
-		$update_redirect_status = array();
-
-
+		// Get total # of redirects to process.
 		if ( 'all' === $status ) {
 			$total_redirects_where = "post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "'";
 		} else {
 			$total_redirects_where = "post_type = '" . WPCOM_Legacy_Redirector::POST_TYPE . "' AND post_status = '" . $status . "'";
 		}
 		$total_redirects = $wpdb->get_var( "SELECT COUNT( ID ) FROM $wpdb->posts WHERE " . $total_redirects_where );
-		$query_count = WPCOM_Legacy_Redirector::update_query_count( $query_count );
+		$redirects['query_count'] = WPCOM_Legacy_Redirector::update_query_count( $redirects['query_count'] );
 
+		// Start progress bar.
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Verifying ' . number_format( $total_redirects ) . ' redirects', (int) $total_redirects );
 		$progress->tick();
 
@@ -273,58 +276,44 @@ class WPCOM_Legacy_Redirector_CLI extends WP_CLI_Command {
 					ORDER BY " . $redirects_query['order'] . "
 					LIMIT " . $redirects_query['limit']
 			);
-			$query_count            = WPCOM_Legacy_Redirector::update_query_count( $query_count );
 
-			if ( 0 === count( $redirects_to_verify ) ) {
+			$redirects['redirects'] = $redirects_to_verify;
+			$redirects['query_count'] = WPCOM_Legacy_Redirector::update_query_count( $query_count );
+
+			if ( empty( $redirects['redirects'] ) ) {
 				continue;
 			}
 
-			// Validate and format redirects for verification.
-			$validated_redirects    = WPCOM_Legacy_Redirector::validate_redirects( $redirects_to_verify, $notices, $update_redirect_status, $query_count, $progress, $assoc_args['force_ssl'] );
-
-			if ( is_wp_error( $validated_redirects ) ) {
-				WP_CLI::error( $validated_redirects->get_error_message() );
+			// Validate redirects.
+			$redirects = WPCOM_Legacy_Redirector::validate_redirects( $redirects, $progress, $assoc_args['force_ssl'] );
+			if ( is_wp_error( $redirects ) ) {
+				WP_CLI::error( $redirects->get_error_message() );
 			}
 
-			$redirects_to_verify    = $validated_redirects['redirects'];
-			$notices                = $validated_redirects['notices'];
-			$update_redirect_status = $validated_redirects['update_redirect_status'];
-			$query_count            = $validated_redirects['query_count'];
-
-			// Verify this batch of redirects.
-			$verified_redirects     = WPCOM_Legacy_Redirector::verify_redirects( $redirects_to_verify, $notices, $update_redirect_status, $progress, $assoc_args['verbose'] );
-
-			if ( is_wp_error( $verified_redirects ) ) {
-				WP_CLI::error( $verified_redirects->get_error_message() );
+			// Verify redirects.
+			$redirects = WPCOM_Legacy_Redirector::verify_redirects( $redirects, $progress, $assoc_args['verbose'] );
+			if ( is_wp_error( $redirects ) ) {
+				WP_CLI::error( $redirects->get_error_message() );
 			}
-
-			$notices                = $verified_redirects['notices'];
-			$update_redirect_status = $verified_redirects['update_redirect_status'];
-
 
 			// Update redirect status
-			$update_redirects       = WPCOM_Legacy_Redirector::update_redirects_status( $update_redirect_status, $query_count, $offset );
-
-			if ( is_wp_error( $update_redirects ) ) {
-				WP_CLI::error( $update_redirects->get_error_message() );
+			$redirects = WPCOM_Legacy_Redirector::update_redirects_status( $redirects );
+			if ( is_wp_error( $update_redirect_status ) ) {
+				WP_CLI::error( $update_redirect_status->get_error_message() );
 			}
-
-			$query_count            = $update_redirects['query_count'];
-			$offset                 = $update_redirects['offset'];
-
 
 			$paged++;
 		} while ( count( $redirects_to_verify ) );
 
 		$progress->finish();
 
-		if ( count( $notices ) > 0 ) {
+		if ( count( $redirects['notices'] ) > 0 ) {
 			if ( 'file' === $format ) {
-				$fp = fopen( 'wpcom-legacy-redirector_verify-redirects_' . time() . '.csv', 'w');
-				WP_CLI\Utils\write_csv( $fp, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
-				fclose($fp);
+				$fp = fopen( 'wpcom-legacy-redirector_verify-redirects_' . time() . '.csv', 'w' );
+				WP_CLI\Utils\write_csv( $fp, $redirects['notices'], array( 'id', 'from_url', 'to_url', 'message' ) );
+				fclose( $fp );
 			} else {
-				WP_CLI\Utils\format_items( $format, $notices, array( 'id', 'from_url', 'to_url', 'message' ) );
+				WP_CLI\Utils\format_items( $format, $redirects['notices'], array( 'id', 'from_url', 'to_url', 'message' ) );
 			}
 		} else {
 			echo WP_CLI::colorize( "%GAll of your redirects have been verified. Nice work!%n " );

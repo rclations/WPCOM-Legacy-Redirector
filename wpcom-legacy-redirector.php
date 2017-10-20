@@ -202,116 +202,110 @@ class WPCOM_Legacy_Redirector {
 	 * Validate and format redirects for verification.
 	 *
 	 * @param array $redirect Array of redirect objects to process.
-	 * @param array $notices Array of notices for failed redirects
-	 * @param array $update_redirect_status Array of redirects that need an updated status.
-	 * @param int $query_count Number of queries run in this operation.
 	 * @param obj $progress WP-CLI progress bar.
 	 * @param bool $force_ssl Whether to format URLs using SSL.
-	 * @return array|WP_Error Array of validated redirects, notices of failed redirects, and redirects to update the status on - or WP_Error on failure.
+	 * @return array|WP_Error Updated redirects array, or WP_Error on failure.
 	 */
-	static function validate_redirects( $redirects, $notices, $update_redirect_status, $query_count, $progress, $force_ssl = false ) {
+	static function validate_redirects( $redirects, $progress, $force_ssl = false ) {
 
-		if ( ! is_array( $redirects ) ) {
+		$post_types = get_post_types( array( 'public' => true ) );
+
+		if ( ! is_array( $redirects['redirects'] ) ) {
 			return new WP_Error( 'no-redirects', 'No redirects to validate.' );
 		}
 
 		$validated_redirects = array();
 
-		foreach ( $redirects as $redirect_to_validate ) {
+		foreach ( $redirects['redirects'] as $redirect ) {
 
-			$redirect = array(
-				'id'            => $redirect_to_validate->ID,
+			$formatted_redirect = array(
+				'id'            => $redirect->ID,
 				'from'          => array(
-					'raw'           => $redirect_to_validate->post_title,
-					'formatted'     => $redirect_to_validate->post_title,
+					'raw'           => $redirect->post_title,
+					'formatted'     => $redirect->post_title,
 				),
 				'to'            => array(
 					'raw'           => '',
 					'formatted'     => '',
 				),
-				'post_status'   => $redirect_to_validate->post_status,
+				'post_status'   => $redirect->post_status,
 				'parent'        => array(
-					'id'            => $redirect_to_validate->parent_id,
-					'status'        => $redirect_to_validate->parent_status,
-					'post_type'     => $redirect_to_validate->parent_post_type,
+					'id'            => $redirect->parent_id,
+					'status'        => $redirect->parent_status,
+					'post_type'     => $redirect->parent_post_type,
 				),
 			);
 
 			// Format relative from urls
-			if ( '/' == substr( $redirect['from']['raw'], 0, 1 ) ) {
+			if ( '/' == substr( $formatted_redirect['from']['raw'], 0, 1 ) ) {
 				if ( $force_ssl ) {
-					$redirect['from']['formatted'] = home_url( $redirect['from']['raw'], 'https' );
+					$formatted_redirect['from']['formatted'] = home_url( $formatted_redirect['from']['raw'], 'https' );
 				} else {
-					$redirect['from']['formatted'] = home_url( $redirect['from']['raw'] );
+					$formatted_redirect['from']['formatted'] = home_url( $formatted_redirect['from']['raw'] );
 				}
 			}
 
 			// Format and validate, based on redirect destination type.
-			if ( ! empty( $redirect_to_validate->post_excerpt ) ) {
-				$redirect['destination_type'] = 'url';
-				$redirect['to']['raw'] = $redirect_to_validate->post_excerpt;
+			if ( ! empty( $redirect->post_excerpt ) ) {
+				$formatted_redirect['destination_type'] = 'url';
+				$formatted_redirect['to']['raw'] = $redirect->post_excerpt;
 
 				// Format relative to URLs
-				if ( '/' == substr( $redirect['to']['raw'], 0, 1 ) ) {
+				if ( '/' == substr( $formatted_redirect['to']['raw'], 0, 1 ) ) {
 					if ( $force_ssl ) {
-						$redirect['to']['formatted'] = home_url( $redirect['to']['raw'], 'https' );
+						$formatted_redirect['to']['formatted'] = home_url( $formatted_redirect['to']['raw'], 'https' );
 					} else {
-						$redirect['to']['formatted'] = home_url( $redirect['to']['raw'] );
+						$formatted_redirect['to']['formatted'] = home_url( $formatted_redirect['to']['raw'] );
 					}
 				}
 
-				$validation = self::validate_url_redirect( $redirect, $post_types );
+				$validation = self::validate_url_redirect( $formatted_redirect, $post_types );
 
 			} else {
-				$redirect['destination_type'] = 'post';
-				$redirect['to']['raw'] = $redirect_to_validate->post_parent;
+				$formatted_redirect['destination_type'] = 'post';
+				$formatted_redirect['to']['raw'] = $redirect->post_parent;
 
 				// Set here for error handling. Update value post-validation, since it requires an expensive get_permalink() call.
-				$redirect['to']['formatted'] = $redirect['to']['raw'];
+				$formatted_redirect['to']['formatted'] = $formatted_redirect['to']['raw'];
 
-				$validation = self::validate_post_redirect( $redirect, $post_types );
+				$validation = self::validate_post_redirect( $formatted_redirect, $post_types );
 			}
 
 			if ( is_wp_error( $validation ) ) {
-				$notices[] = array(
-					'id'        => $redirect['id'],
-					'from_url'  => $redirect['from']['raw'],
-					'to_url'    => $redirect['to']['formatted'],
+				$redirects['notices'][] = array(
+					'id'        => $formatted_redirect['id'],
+					'from_url'  => $formatted_redirect['from']['raw'],
+					'to_url'    => $formatted_redirect['to']['formatted'],
 					'message'   => $validation->get_error_message(),
 				);
-				if ( 'draft' !== $redirect['post_status'] ) {
-					$update_redirect_status['draft'][] = $redirect['id'];
-				}
+				$redirects['update_status'] = self::maybe_update_redirect_status( $redirects['update_status'], $formatted_redirect, 'draft' );
 				$progress->tick();
 				continue;
 			}
 
-			// Update $redirect['to']['formatted'] for redirects to post ids.
-			if ( 'post' === $redirect['destination_type'] ) {
+			// Update $formatted_redirect['to']['formatted'] for redirects to post ids.
+			if ( 'post' === $formatted_redirect['destination_type'] ) {
 
 				// Reuse parent post object in case of multiple redirects to same post ID.
-				if ( ! isset( $parent->ID ) || intval( $redirect['parent']['id'] ) !== $parent->ID ) {
-					$parent = get_post( $redirect['parent']['id'] );
+				if ( ! isset( $parent->ID ) || intval( $formatted_redirect['parent']['id'] ) !== $parent->ID ) {
+					$parent = get_post( $formatted_redirect['parent']['id'] );
 				}
 
-				$redirect['to']['formatted'] = get_permalink( $parent );
+				$formatted_redirect['to']['formatted'] = get_permalink( $parent );
 				$query_count = self::update_query_count( $query_count );
 			}
 
-			$validated_redirects[ $redirect['id'] ] = array(
-				'id'            => $redirect['id'],
-				'from'          => $redirect['from'],
-				'to'            => $redirect['to'],
-				'poststatus'    => $redirect['post_status'],
+			$validated_redirects[ $formatted_redirect['id'] ] = array(
+				'id'            => $formatted_redirect['id'],
+				'from'          => $formatted_redirect['from'],
+				'to'            => $formatted_redirect['to'],
+				'poststatus'    => $formatted_redirect['post_status'],
 			);
 		}
 
-		return array(
-			'redirects'                 => $validated_redirects,
-			'notices'                   => $notices,
-			'update_redirect_status'    => $update_redirect_status,
-			'query_count'               => $query_count,
-		);
+		$redirects['redirects'] = $validated_redirects;
+
+		return $redirects;
 	}
 
 	/**
@@ -321,7 +315,7 @@ class WPCOM_Legacy_Redirector {
 	 * @param array $post_types Array of publicly accessible post types.
 	 * @return bool|WP_Error True on success, false or WP_Error on failure.
 	 */
-	static function validate_url_redirect( $redirect, $post_types ) {
+	private static function validate_url_redirect( $redirect, $post_types ) {
 
 		// Validate non-relative URLs.
 		if (
@@ -339,9 +333,10 @@ class WPCOM_Legacy_Redirector {
 	 *
 	 * @param array $redirect Redirect array.
 	 * @param array $post_types Array of publicly accessible post types.
+	 *
 	 * @return bool|WP_Error True on success, false or WP_Error on failure.
 	 */
-	static function validate_post_redirect( $redirect, $post_types ) {
+	private static function validate_post_redirect( $redirect, $post_types ) {
 
 		if ( $redirect['parent']['id'] <= 0 ) {
 			return new WP_Error( 'no-parent-post', 'Attempting to redirect to a nonexistent post id.' );
@@ -359,61 +354,58 @@ class WPCOM_Legacy_Redirector {
 	/**
 	 * Verify a batch of redirects.
 	 *
-	 * @param array $redirect Array of redirects to verify.
-	 * @param array $notices Array of notices for failed redirects
-	 * @param array $update_redirect_status Array of redirects that need an updated status.
+	 * @param array $redirect Array of redirect objects to process.
 	 * @param obj $progress WP-CLI progress bar.
 	 * @param bool $verbose Whether to print success messages.
-	 * @return array|WP_Error Array of notices for failed redirects and redirects to update the status on - or WP_Error on failure.
+	 * @return array|WP_Error Updated redirects array, or WP_Error on failure.
 	 */
-	static function verify_redirects(  $redirects_to_verify, $notices, $update_redirect_status, $progress, $verbose = false ) {
-		if ( version_compare( PHP_VERSION, '7.0.7' ) >= 0 ) {
-			$redirects = self::try_redirects( $redirects_to_verify, $progress );
-		} else {
-			// If PHP < 7.0.7, we need to manually limit the # of connections.
-			$redirects = array();
-			$redirects_to_verify = array_chunk( $redirects_to_verify, 10 );
-			foreach ( $redirects_to_verify as $redirects_chunk ) {
-				$redirects[] = self::try_redirects( $redirects_to_verify, $progress );
-				sleep( 1 );
-			}
+	static function verify_redirects( $redirects, $progress, $verbose = false ) {
+
+		if ( empty( $redirects['redirects'] ) ) {
+			return $redirects;
 		}
 
-		foreach ( $redirects as $key => $redirect ) {
+		if ( version_compare( PHP_VERSION, '7.0.7' ) >= 0 ) {
+			$redirects['redirects'] = self::try_redirects( $redirects['redirects'], $progress );
+
+		} else {
+			// If PHP < 7.0.7, we need to manually limit the # of connections.
+			$processed_redirects = array();
+			$redirects_array = array_chunk( $redirects['redirects'], 5 );
+			foreach ( $redirects_array as $redirects_chunk ) {
+				$processed_redirects[] = self::try_redirects( $redirects_chunk, $progress );
+				sleep( 1 );
+			}
+			$redirects['redirects'] = $processed_redirects;
+		}
+
+		foreach ( $redirects['redirects'] as $key => $redirect ) {
 
 			$verify = self::verify_redirect_status( $redirect );
 
 			if ( is_wp_error( $verify ) ) {
-				$notices[] = array(
+				$redirects['notices'][] = array(
 					'id'        => $redirect['id'],
 					'from_url'  => $redirect['from']['raw'],
 					'to_url'    => $redirect['to']['formatted'],
 					'message'   => $verify->get_error_message(),
 				);
-				if ( 'draft' !== $redirect['post_status'] ) {
-					$update_redirect_status['draft'][] = $redirect['id'];
-				}
+				$redirects['update_status'] = self::maybe_update_redirect_status( $redirects['update_status'], $redirect, 'draft' );
 				continue;
 			} else {
 				if ( $verbose ) {
-					$notices[] = array(
+					$redirects['notices'][] = array(
 						'id'        => $redirect['id'],
 						'from_url'  => $redirect['from']['raw'],
 						'to_url'    => $redirect['to']['raw'],
 						'message'   => 'Verified',
 					);
 				}
-
-				if ( 'publish' !== $redirect['post_status'] ) {
-					$update_redirect_status['publish'][] = $redirect['id'];
-				}
+				$redirects['update_status'] = self::maybe_update_redirect_status( $redirects['update_status'], $redirect, 'publish' );
 			}
 		}
 
-		return array(
-			'notices' => $notices,
-			'update_redirect_status' => $update_redirect_status,
-		);
+		return $redirects;
 	}
 
 	/**
@@ -423,9 +415,9 @@ class WPCOM_Legacy_Redirector {
 	 * @param obj $progress WP-CLI progress bar.
 	 * @return array|WP_Error Array of redirects with updated redirect information, or WP_Error on failure.
 	 */
-	static function try_redirects( $redirects, $progress ) {
+	private static function try_redirects( $redirects, $progress ) {
 
-		if ( ! is_array( $redirects ) && count( $redirects ) > 0 ) {
+		if ( ! is_array( $redirects ) || empty( $redirects ) ) {
 			return false;
 		}
 
@@ -433,13 +425,9 @@ class WPCOM_Legacy_Redirector {
 
 		// CURLMOPT_MAX_TOTAL_CONNECTIONS was added in PHP 7.0.7, which is needed to limit concurrent connections.
 		if ( version_compare( PHP_VERSION, '7.0.7' ) >= 0 ) {
-			// max simultaneous open connections - see https://curl.haxx.se/libcurl/c/CURLMOPT_MAX_TOTAL_CONNECTIONS.html
-			curl_multi_setopt( $mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 100 );
-
-			// try HTTP/1 pipelining and HTTP/2 multiplexing - see https://curl.haxx.se/libcurl/c/CURLMOPT_PIPELINING.html
-			curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 | CURLPIPE_MULTIPLEX );
+			curl_multi_setopt( $mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 100 );                      // max simultaneous open connections - see https://curl.haxx.se/libcurl/c/CURLMOPT_MAX_TOTAL_CONNECTIONS.html
+			curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 | CURLPIPE_MULTIPLEX ); // try HTTP/1 pipelining and HTTP/2 multiplexing - see https://curl.haxx.se/libcurl/c/CURLMOPT_PIPELINING.html
 		} else {
-			sleep( 1 );
 			curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 );
 		}
 
@@ -506,10 +494,10 @@ class WPCOM_Legacy_Redirector {
 	/**
 	 * Verify a redirect.
 	 *
-	 * @param array $redirect Redirect array.
+	 * @param array $redirect Array of redirects.
 	 * @return bool|WP_Error True if the redirect works as expected, otherwise WP_Error.
 	 */
-	static function verify_redirect_status( $redirect ) {
+	private static function verify_redirect_status( $redirect ) {
 
 		if (
 			! isset( $redirect['to']['formatted'] )
@@ -539,33 +527,49 @@ class WPCOM_Legacy_Redirector {
 	/**
 	 * Update the status of verified redirects.
 	 *
-	 * @param array $redirect Array of statuses and ids of redirects to update.
-	 * @param int $query_count Number of queries run in this operation.
-	 * @param int $offset Offset value for future sql queries.
+	 * @param array $redirect Array of redirect objects to process.
 	 * @return array Array containing updated $query_count and $offset values.
 	 */
-	static function update_redirects_status( $redirects, $query_count, $offset ) {
-		if ( count( $redirects ) > 0 ) {
+	static function update_redirects_status( $redirects ) {
+		if ( is_array( $redirects['update_status'] ) && count( $redirects['update_status'] ) > 0 ) {
 			global $wpdb;
 
-			foreach ( $redirects as $redirect_status => $redirects_to_update ) {
+			foreach ( $redirects['update_status'] as $redirect_status => $redirects_to_update ) {
 				foreach ( $redirects_to_update as $redirect_to_update ) {
 					$updated_rows = $wpdb->update( $wpdb->posts, array( 'post_status' => $redirect_status ), array( 'ID' => $redirect_to_update ) );
-					$query_count = self::update_query_count( $query_count );
+					$redirects['query_count'] = self::update_query_count( $redirects['query_count'] );
 
 					if ( $updated_rows ) {
 						clean_post_cache( $updated_rows );
 
 						if ( $redirect_status !== $status ) {
-							$offset = $offset + $updated_rows;
+							$redirects['offset'] = $redirects['offset'] + $updated_rows;
 						}
 					}
 				}
 			}
 		}
 
-		return array( $query_count, $offset );
+		return $redirects;
 	}
+
+	/**
+	 * Add redirect to update_status array, if it needs updating.
+	 *
+	 * @param array $redirects Array of redirects that need status updates.
+	 * @param array $formatted_redirect A single redirect.
+	 * @param string $status The status the redirect should (potentially) be upated to.
+	 *
+	 * @return array $redirects array.
+	 */
+	private static function maybe_update_redirect_status( $update_status, $formatted_redirect, $status ) {
+		if ( $status !== $formatted_redirect['post_status'] ) {
+			$update_status[ $status ][] = $formatted_redirect['id'];
+		}
+
+		return $redirects;
+	}
+
 
 	private static function get_url_hash( $url ) {
 		return md5( $url );

@@ -279,6 +279,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 					),
 					'redirect' => array(
 						'status' => 200,
+						'count' => 1,
 						'resulting_url' => 'http://google.com/',
 					),
 				),
@@ -294,6 +295,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 					),
 					'redirect' => array(
 						'status' => 200,
+						'count' => 1,
 						'resulting_url' => '/post1',
 					),
 				),

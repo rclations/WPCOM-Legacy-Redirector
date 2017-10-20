@@ -426,7 +426,7 @@ class WPCOM_Legacy_Redirector {
 
 		// CURLMOPT_MAX_TOTAL_CONNECTIONS was added in PHP 7.0.7, which is needed to limit concurrent connections.
 		if ( version_compare( PHP_VERSION, '7.0.7' ) >= 0 ) {
-			curl_multi_setopt( $mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 100 );                      // max simultaneous open connections - see https://curl.haxx.se/libcurl/c/CURLMOPT_MAX_TOTAL_CONNECTIONS.html
+			curl_multi_setopt( $mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 10 );                      // max simultaneous open connections - see https://curl.haxx.se/libcurl/c/CURLMOPT_MAX_TOTAL_CONNECTIONS.html
 			curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 | CURLPIPE_MULTIPLEX ); // try HTTP/1 pipelining and HTTP/2 multiplexing - see https://curl.haxx.se/libcurl/c/CURLMOPT_PIPELINING.html
 		} else {
 			curl_multi_setopt( $mh, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 );

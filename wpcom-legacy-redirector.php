@@ -508,20 +508,23 @@ class WPCOM_Legacy_Redirector {
 			return new WP_Error( 'redirect-missing-information', 'Redirect is missing information and cannot be validated.' );
 		}
 
-		if ( $redirect['to']['formatted'] === $redirect['redirect']['resulting_url'] ) {
-			return true;
-
-		} elseif ( $redirect['from']['formatted'] === $redirect['redirect']['resulting_url'] ) {
+		if ( $redirect['from']['formatted'] === $redirect['redirect']['resulting_url'] ) {
 			return new WP_Error( 'did-not-redirect', 'Did not redirect.' );
 
 		} elseif ( $redirect['from']['formatted'] . '/' === $redirect['redirect']['resulting_url'] ) {
 			return new WP_Error( 'missing-trailing-slash', 'Warning: Redirect works, but missing trailing slash.' );
+
+		} elseif ( 404 === $redirect['redirect']['status'] ) {
+			return new WP_Error( 'http-error-code', 'Redirected to 404 page.' );
 
 		} elseif ( 200 !== $redirect['redirect']['status'] ) {
 			return new WP_Error( 'http-error-code', sprintf( 'Returned %s', $redirect['redirect']['status'] ) );
 
 		} elseif ( 1 < $redirect['redirect']['count'] ) {
 			return new WP_Error( 'http-error-code', sprintf( 'Mismatch: Redirected %d times, ending at %s', number_format( $redirect['redirect']['count'] ), $redirect['redirect']['resulting_url'] ) );
+
+		} elseif ( $redirect['to']['formatted'] === $redirect['redirect']['resulting_url'] ) {
+			return true;
 
 		} else {
 			return new WP_Error( 'redirect-mismatch', sprintf( 'Mismatch: redirected to %s', $redirect['redirect']['resulting_url'] ) );

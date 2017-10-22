@@ -300,6 +300,38 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 					),
 				),
 			),
+			'too_many_redirects' => array(
+				'redirect' => array(
+					'from' => array(
+						'raw' => '1',
+						'formatted' => '/post1',
+					),
+					'to' => array(
+						'formatted' => '/redirect_location',
+					),
+					'redirect' => array(
+						'status' => 200,
+						'count' => 2,
+						'resulting_url' => '/somewhere_else',
+					),
+				),
+			),
+			'redirect_to_404' => array(
+				'redirect' => array(
+					'from' => array(
+						'raw' => '1',
+						'formatted' => '/post1',
+					),
+					'to' => array(
+						'formatted' => '/somewhere_else',
+					),
+					'redirect' => array(
+						'status' => 404,
+						'count' => 1,
+						'resulting_url' => '/somewhere_else',
+					),
+				),
+			),
 		);
 	}
 
@@ -326,6 +358,7 @@ class WpcomLegacyRedirectsTest extends WP_UnitTestCase {
 					),
 					'redirect' => array(
 						'status' => 200,
+						'count' => 1,
 						'resulting_url' => 'http://google.com',
 					),
 				),
